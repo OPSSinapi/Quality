@@ -90,8 +90,7 @@
       <div class="matrix-row header">
         <div class="cell">Check</div>
         <div class="cell">Location</div>
-        <div class="cell">DeviationEndDate</div>
-        <div class="cell">Days Remaining</div>
+        <div class="cell">DeviationEndDate (Days Remaining)</div>
         <div class="cell">Total Previous Deviations</div>
       </div>
       <!-- Data rows will be injected here -->
@@ -106,7 +105,8 @@
       // Utility: Format date to YYYY-MM-DD
       function formatDate(dateString) {
         if (!dateString) return "";
-        return new Date(dateString).toISOString().split('T')[0];
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
       }
       
       // Fetch the JSON data from data.json
@@ -192,7 +192,7 @@
           
           if (latestDeviation && isOpen) {
             // Build deviations row for open deviation
-            const devEnd = formatDate(latestDeviation["DeviationEndDate"]) || "";
+            const devEnd = formatDate(latestDeviation["DeviationEndDate"]);
             const daysRemaining = Math.ceil((new Date(latestDeviation["DeviationEndDate"]) - currentDate) / (1000 * 60 * 60 * 24));
             let totalPrevDeviations = records.filter(r => {
               let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
@@ -229,30 +229,8 @@
           }
         });
         
-        // Group rows by location
-        const groupNotificationsByLocation = (rows) => {
-          const locationGroups = {};
-          rows.forEach(row => {
-            if (!locationGroups[row.location]) {
-              locationGroups[row.location] = [];
-            }
-            locationGroups[row.location].push(row);
-          });
-          
-          const sortedGroupKeys = Object.keys(locationGroups).sort();
-          const groupedRows = [];
-          sortedGroupKeys.forEach(location => {
-            groupedRows.push(...locationGroups[location]);
-          });
-          
-          return groupedRows;
-        };
-        
-        const groupedNotificationsRows = groupNotificationsByLocation(notificationsRows);
-        const groupedDeviationsRows = groupNotificationsByLocation(deviationsRows);
-        
-        renderMatrix("notificationsMatrix", groupedNotificationsRows, "notifications");
-        renderMatrix("deviationsMatrix", groupedDeviationsRows, "deviations");
+        renderMatrix("notificationsMatrix", notificationsRows, "notifications");
+        renderMatrix("deviationsMatrix", deviationsRows, "deviations");
       }
       
       function renderMatrix(containerId, rows, type) {
@@ -280,8 +258,7 @@
             rowDiv.innerHTML = `
               <div class="cell">${row.check}</div>
               <div class="cell">${row.location}</div>
-              <div class="cell">${row.deviationEnd}</div>
-              <div class="cell">${row.daysRemaining}</div>
+              <div class="cell">${row.deviationEnd} (${row.daysRemaining})</div>
               <div class="cell">${row.totalPrevDeviations}</div>
             `;
           }
