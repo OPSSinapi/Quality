@@ -93,6 +93,7 @@
         <div class="cell">Location</div>
         <div class="cell">DeviationEndDate (Days Remaining)</div>
         <div class="cell">Total Previous Deviations</div>
+        <div class="cell">Status</div>
       </div>
       <!-- Data rows will be injected here -->
     </div>
@@ -101,6 +102,14 @@
       // Utility: returns a tick mark (✓) if yes is true, otherwise an empty string.
       function tick(yes) {
         return yes ? "&#10004;" : "";
+      }
+      
+      // Utility: Check if a date is within a range
+      function isDateInRange(date, startDate, endDate) {
+        const checkDate = new Date(date);
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        return checkDate >= start && checkDate <= end;
       }
       
       // Fetch the JSON data from data.json (ensure it is published by GitHub Pages)
@@ -167,24 +176,40 @@
           let latest = currentCycle[currentCycle.length - 1];
           
           // Determine which matrix to use:
-          // If the latest record’s Warning# exists and starts with "Dev", place this group in the Deviations Matrix.
+          // If the latest record's Warning# exists and starts with "Dev", place this group in the Deviations Matrix.
           let warningLabel = latest["Warning#"] ? latest["Warning#"].toString().trim() : "";
           if (warningLabel.startsWith("Dev")) {
             // Build deviations row.
+            const devStart = latest["DeviationStartDate"] || "";
             const devEnd = latest["DeviationEndDate"] || "";
             const daysRemaining = latest["DaysToDeviationEndDate"] || "";
+            
             // Count previous deviation warnings (from records before the current cycle)
             let totalPrevDeviations = (lastWarnIndex >= 0) ?
               records.slice(0, lastWarnIndex + 1).filter(r => {
                 let w = r["Warning#"];
                 return w && w.toString().startsWith("Dev");
               }).length : 0;
+            
+            // Check if deviation is still open
+            let isOpen = true;
+            if (devStart && devEnd) {
+              // Check if there are any Dev warnings within the deviation date range
+              isOpen = !records.some(r => 
+                r["Warning#"] && 
+                r["Warning#"].toString().startsWith("Dev") && 
+                r["Date"] && 
+                isDateInRange(r["Date"], devStart, devEnd)
+              );
+            }
+            
             deviationsRows.push({
               check: check,
               location: location,
               deviationEnd: devEnd,
               daysRemaining: daysRemaining,
-              totalPrevDeviations: totalPrevDeviations
+              totalPrevDeviations: totalPrevDeviations,
+              status: isOpen ? "Open" : "Closed"
             });
           } else {
             // Build notifications row.
@@ -249,12 +274,13 @@
               <div class="cell">${row.notifications}</div>
             `;
           } else if (type === "deviations") {
-            // Columns: Check, Location, DeviationEndDate (Days Remaining), Total Previous Deviations
+            // Columns: Check, Location, DeviationEndDate (Days Remaining), Total Previous Deviations, Status
             rowDiv.innerHTML = `
               <div class="cell">${row.check}</div>
               <div class="cell">${row.location}</div>
               <div class="cell">${row.deviationEnd} (${row.daysRemaining})</div>
               <div class="cell">${row.totalPrevDeviations}</div>
+              <div class="cell">${row.status}</div>
             `;
           }
           container.appendChild(rowDiv);
