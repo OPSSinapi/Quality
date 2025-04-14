@@ -18,11 +18,12 @@
         --white: #ffffff;
 
         /* Location group colors */
-        --location-cz: #e3f2fd;
-        --location-cr: #e8f5e9;
-        --location-lines: #fff8e1;
+        --location-lines: #fff8e1; /* Production lines at top */
+        --location-cz: #e3f2fd;    /* Change Zone */
+        --location-cr: #e8f5e9;    /* Clean Room */
         --location-areas: #f3e5f5;
         --location-other: #fbe9e7;
+        --location-forms: #dcedc8;
       }
 
       * {
@@ -37,6 +38,7 @@
         color: var(--dark);
         padding: 1.5rem;
         line-height: 1.5;
+        transition: all 0.3s ease;
       }
 
       .dashboard-container {
@@ -46,6 +48,18 @@
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         overflow: hidden;
+        transition: all 0.3s ease;
+      }
+      
+      .fullscreen-mode {
+        padding: 0;
+      }
+      
+      .fullscreen-mode .dashboard-container {
+        max-width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        margin: 0;
       }
 
       header {
@@ -67,6 +81,39 @@
         right: 1rem;
         font-size: 0.8rem;
         opacity: 0.8;
+      }
+      
+      .fullscreen-btn {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--white);
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+      }
+      
+      .fullscreen-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      
+      .cycling-indicator {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 20px;
+        z-index: 1000;
+        display: none;
       }
 
       .dashboard-overview {
@@ -315,6 +362,7 @@
       <header>
         <h1><i class="fas fa-chart-line icon"></i>Quality Tracker Dashboard</h1>
         <div class="last-updated" id="lastUpdated">Last updated: Loading...</div>
+        <button id="fullscreenBtn" class="fullscreen-btn"><i class="fas fa-expand"></i> Fullscreen Mode</button>
       </header>
 
       <div class="dashboard-overview">
@@ -388,16 +436,16 @@
         <!-- Legend -->
         <div class="legend">
           <div class="legend-item">
+            <div class="legend-color" style="background-color: var(--location-lines);"></div>
+            <span>Production Lines (SCD, SUM, LEVO, SCALPEL, POPUP, XL2000/UBT)</span>
+          </div>
+          <div class="legend-item">
             <div class="legend-color" style="background-color: var(--location-cz);"></div>
-            <span>Clean Zone (CZ)</span>
+            <span>Change Zone (CZ)</span>
           </div>
           <div class="legend-item">
             <div class="legend-color" style="background-color: var(--location-cr);"></div>
-            <span>Control Room (CR)</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: var(--location-lines);"></div>
-            <span>Production Lines (LEVO, SCD, Scalpel, SUM)</span>
+            <span>Clean Room (CR)</span>
           </div>
           <div class="legend-item">
             <div class="legend-color" style="background-color: var(--location-areas);"></div>
@@ -407,6 +455,11 @@
             <div class="legend-color" style="background-color: var(--location-other);"></div>
             <span>Other Locations</span>
           </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: var(--location-forms);"></div>
+            <span>Forms & Registers</span>
+          </div>
+        <div id="cyclingIndicator" class="cycling-indicator">Auto-cycling content...</div>
         </div>
       </div>
     </div>
@@ -414,21 +467,25 @@
     <script>
       // Utility functions
       function getLocationGroup(location) {
-        // Clean zone locations
-        if (location === 'CZ') {
+        // Production line locations (prioritized)
+        if (['SCD', 'SUM', 'LEVO', 'Scalpel', 'SCALPEL', 'POPUP', 'XL2000/UBT'].includes(location)) {
+          return 'location-lines';
+        }
+        // Change zone location
+        else if (location === 'CZ') {
           return 'location-cz';
         }
-        // Control room locations
+        // Clean room location
         else if (location === 'CR') {
           return 'location-cr';
-        }
-        // Production line locations
-        else if (['LEVO', 'SCD', 'Scalpel', 'SCALPEL', 'SUM', 'POPUP', 'XL2000/UBT'].includes(location)) {
-          return 'location-lines';
         }
         // Area locations
         else if (['PO', 'PA', 'MH', 'Warehouse', 'Quality'].includes(location)) {
           return 'location-areas';
+        }
+        // Forms and Registers
+        else if (location.includes('REV') || location.startsWith('MF')) {
+          return 'location-forms';
         }
         // Default for other locations
         else {
@@ -523,7 +580,12 @@
           processData(data);
           // Set last updated date
           const now = new Date();
-          document.getElementById("lastUpdated").innerText = `Last updated: ${now.toLocaleString()}`;
+          const day = now.getDate().toString().padStart(2, '0');
+          const month = now.toLocaleString('en-US', { month: 'short' });
+          const year = now.getFullYear();
+          const hours = now.getHours().toString().padStart(2, '0');
+          const minutes = now.getMinutes().toString().padStart(2, '0');
+          document.getElementById("lastUpdated").innerText = `Last updated: ${day} ${month} ${year}, ${hours}:${minutes}`;
           // Setup sorting after tables are populated
           setupSorting();
         })
@@ -533,8 +595,163 @@
           document.getElementById("loadingDeviations").innerText = "Failed to load deviations data.";
         });
       
+      // Fullscreen and cycling functionality
+      let isFullscreen = false;
+      let cyclingInterval = null;
+      const cycleTime = 10000; // 10 seconds per section
+      
+      function toggleFullscreen() {
+        isFullscreen = !isFullscreen;
+        
+        if (isFullscreen) {
+          // Enter fullscreen
+          document.body.classList.add('fullscreen-mode');
+          document.getElementById('fullscreenBtn').innerHTML = '<i class="fas fa-compress"></i> Exit Fullscreen';
+          
+          // Start auto-cycling
+          startContentCycling();
+          
+          // Request browser fullscreen
+          if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+          } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+          } else if (document.documentElement.msRequestFullscreen) {
+            document.documentElement.msRequestFullscreen();
+          }
+        } else {
+          // Exit fullscreen
+          document.body.classList.remove('fullscreen-mode');
+          document.getElementById('fullscreenBtn').innerHTML = '<i class="fas fa-expand"></i> Fullscreen Mode';
+          
+          // Stop auto-cycling
+          stopContentCycling();
+          
+          // Exit browser fullscreen
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          }
+        }
+      }
+      
+      function startContentCycling() {
+        const sections = [
+          { element: document.getElementById('notificationsTableContainer'), scrollable: true },
+          { element: document.getElementById('deviationsTableContainer'), scrollable: true }
+        ];
+        
+        let currentSectionIndex = 0;
+        let scrollPosition = 0;
+        let scrollDirection = 'down';
+        let currentSection = sections[currentSectionIndex];
+        
+        document.getElementById('cyclingIndicator').style.display = 'block';
+        
+        // Reset all scroll positions
+        sections.forEach(section => {
+          if (section.scrollable) {
+            section.element.scrollTop = 0;
+          }
+        });
+        
+        cyclingInterval = setInterval(() => {
+          if (currentSection.scrollable) {
+            // Handle scrolling within a section
+            const maxScroll = currentSection.element.scrollHeight - currentSection.element.clientHeight;
+            
+            if (maxScroll <= 0) {
+              // No scrolling needed, move to next section
+              currentSectionIndex = (currentSectionIndex + 1) % sections.length;
+              currentSection = sections[currentSectionIndex];
+              scrollPosition = 0;
+              scrollDirection = 'down';
+            } else if (scrollDirection === 'down') {
+              // Scroll down
+              scrollPosition += currentSection.element.clientHeight / 2;
+              if (scrollPosition >= maxScroll) {
+                scrollPosition = maxScroll;
+                scrollDirection = 'up';
+              }
+              currentSection.element.scrollTop = scrollPosition;
+            } else {
+              // Scroll up
+              scrollPosition -= currentSection.element.clientHeight / 2;
+              if (scrollPosition <= 0) {
+                scrollPosition = 0;
+                scrollDirection = 'down';
+                // Move to next section
+                currentSectionIndex = (currentSectionIndex + 1) % sections.length;
+                currentSection = sections[currentSectionIndex];
+              }
+              currentSection.element.scrollTop = scrollPosition;
+            }
+          } else {
+            // Non-scrollable section, just move to next after delay
+            currentSectionIndex = (currentSectionIndex + 1) % sections.length;
+            currentSection = sections[currentSectionIndex];
+            scrollPosition = 0;
+            scrollDirection = 'down';
+          }
+        }, 3000); // Scroll or change section every 3 seconds
+      }
+      
+      function stopContentCycling() {
+        if (cyclingInterval) {
+          clearInterval(cyclingInterval);
+          cyclingInterval = null;
+        }
+        document.getElementById('cyclingIndicator').style.display = 'none';
+      }
+      
+      // Add event listener after DOM is loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+        
+        // Handle ESC key to exit fullscreen
+        document.addEventListener('fullscreenchange', function() {
+          if (!document.fullscreenElement && isFullscreen) {
+            // User pressed ESC to exit fullscreen
+            toggleFullscreen();
+          }
+        });
+      });
+      
       function processData(data) {
         const currentDate = new Date();
+        
+        // Get all the check-location pairs we need to ensure are shown
+        const allChecks = addAllChecks();
+        
+        // Create a base record template
+        const createBaseRecord = (check, location) => ({
+          "Date": new Date().toISOString(),
+          "Check Location Pairs": `${check} - ${location}`,
+          "Check": check,
+          "Location": location,
+          "Rating": 0,
+          "Offense#": "",
+          "Warning#": "",
+          "DeviationStartDate": "",
+          "DeviationEndDate": "",
+          "DaysToDeviationEndDate": ""
+        });
+        
+        // Add placeholder records for any missing check-location pairs
+        allChecks.forEach(([check, location]) => {
+          // Check if this pair exists in the data
+          const existingRecord = data.some(record => 
+            record["Check"] === check && record["Location"] === location
+          );
+          
+          // If not, add a placeholder record
+          if (!existingRecord) {
+            data.push(createBaseRecord(check, location));
+          }
+        });
         
         // Group records by Check and Location
         const groups = {};
@@ -654,19 +871,29 @@
           }
         });
         
-        // Sort by location group and then by check
+        // Define custom order for location groups (production lines first)
+        const groupOrder = {
+          'location-lines': 0,
+          'location-cz': 1,
+          'location-cr': 2,
+          'location-areas': 3,
+          'location-other': 4,
+          'location-forms': 5
+        };
+        
+        // Sort by location group (custom order) and then by check
         notificationsRows.sort((a, b) => {
           if (a.locationGroup === b.locationGroup) {
             return a.check.localeCompare(b.check);
           }
-          return a.locationGroup.localeCompare(b.locationGroup);
+          return groupOrder[a.locationGroup] - groupOrder[b.locationGroup];
         });
         
         deviationsRows.sort((a, b) => {
           if (a.locationGroup === b.locationGroup) {
             return a.check.localeCompare(b.check);
           }
-          return a.locationGroup.localeCompare(b.locationGroup);
+          return groupOrder[a.locationGroup] - groupOrder[b.locationGroup];
         });
         
         renderNotificationsTable(notificationsRows);
@@ -732,9 +959,11 @@
           const tr = document.createElement("tr");
           tr.className = row.locationGroup;
           
-          // Format the date nicely
+          // Format the date as dd MMM
           const endDate = new Date(row.deviationEnd);
-          const formattedDate = endDate.toLocaleDateString();
+          const day = endDate.getDate().toString().padStart(2, '0');
+          const month = endDate.toLocaleString('en-US', { month: 'short' });
+          const formattedDate = `${day} ${month}`;
           
           // Status based on days remaining
           const statusClass = getDeviationStatus(row.daysRemaining);
