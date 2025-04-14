@@ -1168,79 +1168,87 @@
       }
       
       function renderNotificationsTable(rows, initTable = false) {
-        const table = document.querySelector("#notificationsTable");
+        // Completely rebuild the table container structure
+        const tableContainer = document.getElementById("notificationsTableContainer");
+        tableContainer.innerHTML = '';
         
-        // If the table is empty, create the structure
-        if (table.innerHTML === '' || initTable) {
-          // Reset table structure
-          table.innerHTML = '';
-          
-          // Create thead element
-          const thead = document.createElement("thead");
-          thead.innerHTML = `
+        // Create the fixed header section
+        const headerSection = document.createElement("div");
+        headerSection.className = "table-header";
+        
+        const headerTable = document.createElement("table");
+        headerTable.className = "responsive-table";
+        headerTable.innerHTML = `
+          <thead>
             <tr>
-              <th class="sortable" data-sort="check">Check</th>
-              <th class="sortable" data-sort="location">Location</th>
-              <th>Notif 1</th>
-              <th>Notif 2</th>
-              <th>Notif 3</th>
-              <th>Warning</th>
-              <th>Previous Warnings</th>
-              <th>Status</th>
+              <th class="sortable" data-sort="check" style="width: 25%">Check</th>
+              <th class="sortable" data-sort="location" style="width: 15%">Location</th>
+              <th style="width: 8%">Notif 1</th>
+              <th style="width: 8%">Notif 2</th>
+              <th style="width: 8%">Notif 3</th>
+              <th style="width: 15%">Warning</th>
+              <th style="width: 15%">Previous Warnings</th>
+              <th style="width: 6%">Status</th>
             </tr>
-          `;
-          table.appendChild(thead);
-          
-          // Create tbody element
-          const tbody = document.createElement("tbody");
-          table.appendChild(tbody);
-        } else {
-          // Just clear the existing tbody content
-          const tbody = table.querySelector("tbody");
-          tbody.innerHTML = '';
-        }
+          </thead>
+        `;
+        headerSection.appendChild(headerTable);
+        tableContainer.appendChild(headerSection);
         
-        const tableBody = table.querySelector("tbody");
+        // Create the scrollable body section
+        const bodySection = document.createElement("div");
+        bodySection.className = "table-body";
         
+        const bodyTable = document.createElement("table");
+        bodyTable.id = "notificationsTableBody";
+        bodyTable.className = "responsive-table";
+        
+        // Create an empty body
+        const tbody = document.createElement("tbody");
+        bodyTable.appendChild(tbody);
+        
+        bodySection.appendChild(bodyTable);
+        tableContainer.appendChild(bodySection);
+        
+        // Now populate the table
         if (!rows || rows.length === 0) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td colspan="8" style="text-align: center; padding: 20px; color: var(--gray);">No notifications to display.</td>`;
-          tableBody.appendChild(tr);
-          return;
+          tbody.appendChild(tr);
+        } else {
+          rows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.className = row.locationGroup;
+            
+            // Status based on notification count and warning presence
+            const statusClass = getNotificationStatus(row.notifCount, row.hasWarning);
+            
+            tr.innerHTML = `
+              <td data-sort="check" data-value="${row.check}">${row.check}</td>
+              <td data-sort="location" data-value="${row.location}">${row.location}</td>
+              <td class="text-center">
+                <div class="notif-indicator ${row.notif1 ? 'notif-active' : 'notif-inactive'}">1</div>
+              </td>
+              <td class="text-center">
+                <div class="notif-indicator ${row.notif2 ? 'notif-active' : 'notif-inactive'}">2</div>
+              </td>
+              <td class="text-center">
+                <div class="notif-indicator ${row.notif3 ? 'notif-active' : 'notif-inactive'}">3</div>
+              </td>
+              <td>
+                ${row.warning ? `<div class="warning-badge">${row.warning}</div>` : ''}
+              </td>
+              <td>${row.totalPrevWarnings}</td>
+              <td>
+                <span class="status-indicator ${statusClass}"></span>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
         }
         
-        rows.forEach(row => {
-          const tr = document.createElement("tr");
-          tr.className = row.locationGroup;
-          
-          // Status based on notification count and warning presence
-          const statusClass = getNotificationStatus(row.notifCount, row.hasWarning);
-          
-          tr.innerHTML = `
-            <td data-sort="check" data-value="${row.check}">${row.check}</td>
-            <td data-sort="location" data-value="${row.location}">${row.location}</td>
-            <td class="text-center">
-              <div class="notif-indicator ${row.notif1 ? 'notif-active' : 'notif-inactive'}">1</div>
-            </td>
-            <td class="text-center">
-              <div class="notif-indicator ${row.notif2 ? 'notif-active' : 'notif-inactive'}">2</div>
-            </td>
-            <td class="text-center">
-              <div class="notif-indicator ${row.notif3 ? 'notif-active' : 'notif-inactive'}">3</div>
-            </td>
-            <td>
-              ${row.warning ? `<div class="warning-badge">${row.warning}</div>` : ''}
-            </td>
-            <td>${row.totalPrevWarnings}</td>
-            <td>
-              <span class="status-indicator ${statusClass}"></span>
-            </td>
-          `;
-          tableBody.appendChild(tr);
-        });
-        
         document.getElementById("loadingNotifications").style.display = "none";
-        document.getElementById("notificationsTableContainer").style.display = "block";
+        tableContainer.style.display = "flex";
       }
       
       function renderDeviationsTable(rows) {
