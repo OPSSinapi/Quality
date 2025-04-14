@@ -3,106 +3,514 @@
   <head>
     <meta charset="UTF-8" />
     <title>Quality Tracker Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
-      /* General Page Styling */
-      body {
-        font-family: Arial, sans-serif;
-        background: #f8f8f8;
-        margin: 20px;
-        color: #333;
-      }
-      h1, h2 {
-        text-align: center;
-      }
-      h2 {
-        margin-top: 40px;
-      }
-      .loading {
-        text-align: center;
-        margin-top: 20px;
-        font-size: 1.2em;
+      /* Modern, clean styling */
+      :root {
+        --primary: #3498db;
+        --secondary: #2c3e50;
+        --success: #2ecc71;
+        --warning: #f39c12;
+        --danger: #e74c3c;
+        --light: #f8f9fa;
+        --dark: #343a40;
+        --gray: #6c757d;
+        --white: #ffffff;
+
+        /* Location group colors */
+        --location-cz: #e3f2fd;
+        --location-cr: #e8f5e9;
+        --location-lines: #fff8e1;
+        --location-areas: #f3e5f5;
+        --location-other: #fbe9e7;
       }
 
-      /* Matrix Grid Styling */
-      .matrix {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 1px;
-        background: #ccc;
-        margin: 20px auto;
-        max-width: 1000px;
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-      .matrix-row {
-        display: contents;
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--light);
+        color: var(--dark);
+        padding: 1.5rem;
+        line-height: 1.5;
       }
-      .matrix .cell {
-        background: #fff;
-        padding: 8px;
+
+      .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: var(--white);
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      header {
+        background: var(--secondary);
+        color: var(--white);
         text-align: center;
-        border: 1px solid #ddd;
+        padding: 1.5rem;
+        position: relative;
       }
-      .matrix.header .cell {
-        background: #007acc;
-        color: #fff;
+
+      h1 {
+        font-size: 1.8rem;
+        margin: 0;
+      }
+
+      .last-updated {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }
+
+      .dashboard-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--light);
+      }
+
+      .stat-card {
+        background: var(--white);
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary);
+      }
+
+      .stat-label {
+        font-size: 0.9rem;
+        color: var(--gray);
+      }
+
+      .dashboard-content {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 1.5rem;
+      }
+
+      .section {
+        margin-bottom: 1rem;
+      }
+
+      .section-title {
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+        color: var(--secondary);
+        border-bottom: 2px solid var(--primary);
+        padding-bottom: 0.5rem;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 2rem;
+        color: var(--gray);
+        font-style: italic;
+      }
+
+      /* Table styling */
+      .responsive-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      }
+
+      .responsive-table thead {
+        background-color: var(--primary);
+        color: var(--white);
+      }
+
+      .responsive-table th {
+        padding: 0.75rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+      }
+
+      .responsive-table td {
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+      }
+
+      .responsive-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      /* Location group styling */
+      .location-cz td {
+        background-color: var(--location-cz);
+      }
+
+      .location-cr td {
+        background-color: var(--location-cr);
+      }
+
+      .location-lines td {
+        background-color: var(--location-lines);
+      }
+
+      .location-areas td {
+        background-color: var(--location-areas);
+      }
+
+      .location-other td {
+        background-color: var(--location-other);
+      }
+
+      /* Status indicators */
+      .status-indicator {
+        display: inline-block;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        margin-right: 4px;
+      }
+
+      .status-good {
+        background-color: var(--success);
+      }
+
+      .status-warning {
+        background-color: var(--warning);
+      }
+
+      .status-critical {
+        background-color: var(--danger);
+      }
+
+      .notif-indicator {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-weight: bold;
+        margin: 0 auto;
+      }
+
+      .notif-active {
+        background-color: var(--primary);
+      }
+
+      .notif-inactive {
+        background-color: #e0e0e0;
+        color: #9e9e9e;
+      }
+
+      .warning-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        background-color: var(--warning);
+        color: var(--white);
+      }
+
+      .deviation-days {
         font-weight: bold;
       }
-      /* Colour-code groups by location – you might want to adjust these colours. */
-      .group-even .cell {
-        background: #e7f4ff;
+
+      .days-critical {
+        color: var(--danger);
       }
-      .group-odd .cell {
-        background: #fff;
+
+      .days-warning {
+        color: var(--warning);
       }
-      .tick {
-        font-size: 1.2em;
-        color: green;
+
+      .days-normal {
+        color: var(--success);
       }
-      .bold {
-        font-weight: bold;
+
+      /* Make the tables take less height but scrollable */
+      .table-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border-radius: 8px;
+        border: 1px solid rgba(0,0,0,0.1);
+      }
+
+      /* Legend */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(0,0,0,0.03);
+        border-radius: 8px;
+        margin-top: 1rem;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        font-size: 0.8rem;
+      }
+
+      .legend-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        margin-right: 0.5rem;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .responsive-table {
+          font-size: 0.8rem;
+        }
+        
+        .dashboard-content {
+          padding: 1rem;
+        }
+      }
+
+      .icon {
+        margin-right: 0.5rem;
+      }
+
+      .sortable {
+        cursor: pointer;
+      }
+      
+      .sortable:hover {
+        background-color: rgba(255,255,255,0.2);
+      }
+
+      .sortable::after {
+        content: "⇵";
+        margin-left: 5px;
+        opacity: 0.5;
       }
     </style>
   </head>
   <body>
-    <h1>Quality Tracker Dashboard</h1>
-    
-    <!-- Notifications Matrix Section -->
-    <h2>Current Notifications</h2>
-    <div id="loadingNotifications" class="loading">Loading notifications...</div>
-    <div id="notificationsMatrix" class="matrix" style="display: none;">
-      <!-- Header Row -->
-      <div class="matrix-row header">
-        <div class="cell">Check</div>
-        <div class="cell">Location</div>
-        <div class="cell">Notification 1</div>
-        <div class="cell">Notification 2</div>
-        <div class="cell">Notification 3</div>
-        <div class="cell">Warning</div>
-        <div class="cell">Total Previous Warnings</div>
-        <div class="cell">Notifications</div>
+    <div class="dashboard-container">
+      <header>
+        <h1><i class="fas fa-chart-line icon"></i>Quality Tracker Dashboard</h1>
+        <div class="last-updated" id="lastUpdated">Last updated: Loading...</div>
+      </header>
+
+      <div class="dashboard-overview">
+        <div class="stat-card">
+          <div class="stat-number" id="totalIssuesCount">-</div>
+          <div class="stat-label">Active Issues</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="warningsCount">-</div>
+          <div class="stat-label">Current Warnings</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="deviationsCount">-</div>
+          <div class="stat-label">Open Deviations</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="locationsCount">-</div>
+          <div class="stat-label">Affected Locations</div>
+        </div>
       </div>
-      <!-- Data rows will be injected here -->
-    </div>
-    
-    <!-- Open Deviations Matrix Section -->
-    <h2>Open / Current Deviations</h2>
-    <div id="loadingDeviations" class="loading">Loading deviations...</div>
-    <div id="deviationsMatrix" class="matrix" style="display: none;">
-      <!-- Header Row -->
-      <div class="matrix-row header">
-        <div class="cell">Check</div>
-        <div class="cell">Location</div>
-        <div class="cell">DeviationEndDate (Days Remaining)</div>
-        <div class="cell">Total Previous Deviations</div>
+
+      <div class="dashboard-content">
+        <!-- Notifications Section -->
+        <div class="section">
+          <h2 class="section-title"><i class="fas fa-bell icon"></i>Current Notifications</h2>
+          <div id="loadingNotifications" class="loading">Loading notifications data...</div>
+          <div id="notificationsTableContainer" class="table-container" style="display: none;">
+            <table id="notificationsTable" class="responsive-table">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="check">Check</th>
+                  <th class="sortable" data-sort="location">Location</th>
+                  <th>Notif 1</th>
+                  <th>Notif 2</th>
+                  <th>Notif 3</th>
+                  <th>Warning</th>
+                  <th>Previous Warnings</th>
+                  <th>Notifications</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Data rows will be injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Deviations Section -->
+        <div class="section">
+          <h2 class="section-title"><i class="fas fa-exclamation-triangle icon"></i>Open Deviations</h2>
+          <div id="loadingDeviations" class="loading">Loading deviations data...</div>
+          <div id="deviationsTableContainer" class="table-container" style="display: none;">
+            <table id="deviationsTable" class="responsive-table">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="check">Check</th>
+                  <th class="sortable" data-sort="location">Location</th>
+                  <th class="sortable" data-sort="daysRemaining">End Date (Days Remaining)</th>
+                  <th>Previous Deviations</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Data rows will be injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: var(--location-cz);"></div>
+            <span>Clean Zone (CZ)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: var(--location-cr);"></div>
+            <span>Control Room (CR)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: var(--location-lines);"></div>
+            <span>Production Lines (LEVO, SCD, Scalpel, SUM)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: var(--location-areas);"></div>
+            <span>General Areas (PO, PA, MH)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: var(--location-other);"></div>
+            <span>Other Locations</span>
+          </div>
+        </div>
       </div>
-      <!-- Data rows will be injected here -->
     </div>
-    
+
     <script>
-      // Utility: returns a tick mark (✓) if yes is true, otherwise an empty string.
-      function tick(yes) {
-        return yes ? "✔" : "";
+      // Utility functions
+      function getLocationGroup(location) {
+        // Clean zone locations
+        if (location === 'CZ') {
+          return 'location-cz';
+        }
+        // Control room locations
+        else if (location === 'CR') {
+          return 'location-cr';
+        }
+        // Production line locations
+        else if (['LEVO', 'SCD', 'Scalpel', 'SCALPEL', 'SUM', 'POPUP', 'XL2000/UBT'].includes(location)) {
+          return 'location-lines';
+        }
+        // Area locations
+        else if (['PO', 'PA', 'MH', 'Warehouse', 'Quality'].includes(location)) {
+          return 'location-areas';
+        }
+        // Default for other locations
+        else {
+          return 'location-other';
+        }
       }
-      
+
+      // Get status based on notification count or days remaining
+      function getNotificationStatus(notifCount, hasWarning) {
+        if (hasWarning) {
+          return 'status-critical';
+        } else if (notifCount >= 3) {
+          return 'status-warning';
+        } else {
+          return 'status-good';
+        }
+      }
+
+      function getDeviationStatus(daysRemaining) {
+        if (daysRemaining <= 3) {
+          return 'status-critical';
+        } else if (daysRemaining <= 7) {
+          return 'status-warning';
+        } else {
+          return 'status-good';
+        }
+      }
+
+      function getDaysClass(daysRemaining) {
+        if (daysRemaining <= 3) {
+          return 'days-critical';
+        } else if (daysRemaining <= 7) {
+          return 'days-warning';
+        } else {
+          return 'days-normal';
+        }
+      }
+
+      // Sort functions
+      function sortTable(tableId, column, asc = true) {
+        const table = document.getElementById(tableId);
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        // Sort based on the selected column
+        const sortedRows = rows.sort((a, b) => {
+          const aValue = a.querySelector(`td[data-sort="${column}"]`).getAttribute('data-value');
+          const bValue = b.querySelector(`td[data-sort="${column}"]`).getAttribute('data-value');
+          
+          if (!isNaN(aValue) && !isNaN(bValue)) {
+            return asc ? aValue - bValue : bValue - aValue;
+          } else {
+            return asc ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+          }
+        });
+        
+        // Clear table and add sorted rows
+        tbody.innerHTML = '';
+        sortedRows.forEach(row => tbody.appendChild(row));
+      }
+
+      // Attach event listeners to sortable headers
+      function setupSorting() {
+        document.querySelectorAll('.sortable').forEach(header => {
+          header.addEventListener('click', function() {
+            const column = this.getAttribute('data-sort');
+            const tableId = this.closest('table').id;
+            const asc = this.classList.contains('sorted-asc') ? false : true;
+            
+            // Reset all headers
+            document.querySelectorAll('.sortable').forEach(h => {
+              h.classList.remove('sorted-asc', 'sorted-desc');
+            });
+            
+            // Set sort indicator
+            this.classList.add(asc ? 'sorted-asc' : 'sorted-desc');
+            
+            sortTable(tableId, column, asc);
+          });
+        });
+      }
+
       // Fetch the JSON data from data.json
       fetch("data.json")
         .then(response => {
@@ -113,6 +521,11 @@
         })
         .then(data => {
           processData(data);
+          // Set last updated date
+          const now = new Date();
+          document.getElementById("lastUpdated").innerText = `Last updated: ${now.toLocaleString()}`;
+          // Setup sorting after tables are populated
+          setupSorting();
         })
         .catch(error => {
           console.error("Error fetching data.json:", error);
@@ -122,6 +535,7 @@
       
       function processData(data) {
         const currentDate = new Date();
+        
         // Group records by Check and Location
         const groups = {};
         data.forEach(record => {
@@ -136,11 +550,15 @@
         
         const notificationsRows = [];
         const deviationsRows = [];
+        const uniqueLocations = new Set();
+        let warningsCount = 0;
         
         Object.keys(groups).forEach((key, groupIndex) => {
           const parts = key.split("|");
           const check = parts[0];
           const location = parts[1];
+          uniqueLocations.add(location);
+          
           const records = groups[key].slice().sort((a, b) => new Date(a["Date"]) - new Date(b["Date"]));
           
           // Find the last warning index
@@ -156,10 +574,12 @@
           
           let latest = currentCycle[currentCycle.length - 1];
           let warningLabel = latest["Warning#"] ? latest["Warning#"].toString().trim() : "";
+          if (warningLabel) warningsCount++;
           
           // Check for open deviations
           let latestDeviation = null;
           let isOpen = false;
+          
           // Find the latest deviation record
           for (let i = records.length - 1; i >= 0; i--) {
             let rec = records[i];
@@ -168,6 +588,7 @@
               latestDeviation = rec;
               const startDate = new Date(rec["DeviationStartDate"]);
               const endDate = new Date(rec["DeviationEndDate"]);
+              
               // Check if there are any other deviation warnings within the date range
               const hasWarningsInRange = records.some(otherRec => {
                 if (otherRec === rec) return false; // Exclude the deviation record itself
@@ -179,6 +600,7 @@
                   otherDate <= endDate
                 );
               });
+              
               isOpen = !hasWarningsInRange;
               break;
             }
@@ -192,12 +614,14 @@
               let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
               return w.startsWith("Dev") && new Date(r["Date"]) < new Date(latestDeviation["Date"]);
             }).length;
+            
             deviationsRows.push({
               check: check,
               location: location,
               deviationEnd: devEnd,
               daysRemaining: daysRemaining,
-              totalPrevDeviations: totalPrevDeviations
+              totalPrevDeviations: totalPrevDeviations,
+              locationGroup: getLocationGroup(location)
             });
           } else {
             // Build notifications row
@@ -205,13 +629,15 @@
             let notif1 = notifCount >= 1;
             let notif2 = notifCount >= 2;
             let notif3 = notifCount >= 3;
-            let warningDisplay = warningLabel !== "" ? `<span class="bold">${warningLabel}</span>` : "";
+            let warningDisplay = warningLabel !== "" ? warningLabel : "";
             let totalPrevWarnings = (lastWarnIndex >= 0) ? 
               records.slice(0, lastWarnIndex + 1).filter(r => {
                 let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
                 return w && w !== "" && !w.startsWith("Dev");
               }).length : 0;
+            
             let notificationsVal = latest["Offense#"] || "";
+            
             notificationsRows.push({
               check: check,
               location: location,
@@ -220,53 +646,116 @@
               notif3: notif3,
               warning: warningDisplay,
               totalPrevWarnings: totalPrevWarnings,
-              notifications: notificationsVal
+              notifications: notificationsVal,
+              notifCount: notifCount,
+              hasWarning: warningDisplay !== "",
+              locationGroup: getLocationGroup(location)
             });
           }
         });
         
-        renderMatrix("notificationsMatrix", notificationsRows, "notifications");
-        renderMatrix("deviationsMatrix", deviationsRows, "deviations");
+        // Sort by location group and then by check
+        notificationsRows.sort((a, b) => {
+          if (a.locationGroup === b.locationGroup) {
+            return a.check.localeCompare(b.check);
+          }
+          return a.locationGroup.localeCompare(b.locationGroup);
+        });
+        
+        deviationsRows.sort((a, b) => {
+          if (a.locationGroup === b.locationGroup) {
+            return a.check.localeCompare(b.check);
+          }
+          return a.locationGroup.localeCompare(b.locationGroup);
+        });
+        
+        renderNotificationsTable(notificationsRows);
+        renderDeviationsTable(deviationsRows);
+        
+        // Update dashboard stats
+        document.getElementById("totalIssuesCount").innerText = notificationsRows.length + deviationsRows.length;
+        document.getElementById("warningsCount").innerText = warningsCount;
+        document.getElementById("deviationsCount").innerText = deviationsRows.length;
+        document.getElementById("locationsCount").innerText = uniqueLocations.size;
       }
       
-      function renderMatrix(containerId, rows, type) {
-        const container = document.getElementById(containerId);
+      function renderNotificationsTable(rows) {
+        const tableBody = document.querySelector("#notificationsTable tbody");
         if (!rows || rows.length === 0) {
-          document.getElementById(
-            containerId === "notificationsMatrix" ? "loadingNotifications" : "loadingDeviations"
-          ).innerText = "No data to display.";
+          document.getElementById("loadingNotifications").innerText = "No notifications to display.";
           return;
         }
-        rows.forEach((row, index) => {
-          const rowDiv = document.createElement("div");
-          rowDiv.className = "matrix-row " + (index % 2 === 0 ? "group-even" : "group-odd");
-          if (type === "notifications") {
-            rowDiv.innerHTML = `
-              <div class="cell">${row.check}</div>
-              <div class="cell">${row.location}</div>
-              <div class="cell">${tick(row.notif1)}</div>
-              <div class="cell">${tick(row.notif2)}</div>
-              <div class="cell">${tick(row.notif3)}</div>
-              <div class="cell">${row.warning || ""}</div>
-              <div class="cell">${row.totalPrevWarnings}</div>
-              <div class="cell">${row.notifications}</div>
-            `;
-          } else if (type === "deviations") {
-            rowDiv.innerHTML = `
-              <div class="cell">${row.check}</div>
-              <div class="cell">${row.location}</div>
-              <div class="cell">${row.deviationEnd} (${row.daysRemaining})</div>
-              <div class="cell">${row.totalPrevDeviations}</div>
-            `;
-          }
-          container.appendChild(rowDiv);
+        
+        rows.forEach(row => {
+          const tr = document.createElement("tr");
+          tr.className = row.locationGroup;
+          
+          // Status based on notification count and warning presence
+          const statusClass = getNotificationStatus(row.notifCount, row.hasWarning);
+          
+          tr.innerHTML = `
+            <td data-sort="check" data-value="${row.check}">${row.check}</td>
+            <td data-sort="location" data-value="${row.location}">${row.location}</td>
+            <td class="text-center">
+              <div class="notif-indicator ${row.notif1 ? 'notif-active' : 'notif-inactive'}">1</div>
+            </td>
+            <td class="text-center">
+              <div class="notif-indicator ${row.notif2 ? 'notif-active' : 'notif-inactive'}">2</div>
+            </td>
+            <td class="text-center">
+              <div class="notif-indicator ${row.notif3 ? 'notif-active' : 'notif-inactive'}">3</div>
+            </td>
+            <td>
+              ${row.warning ? `<div class="warning-badge">${row.warning}</div>` : ''}
+            </td>
+            <td>${row.totalPrevWarnings}</td>
+            <td>${row.notifications}</td>
+            <td>
+              <span class="status-indicator ${statusClass}"></span>
+            </td>
+          `;
+          tableBody.appendChild(tr);
         });
-        container.style.display = "grid";
-        if (type === "notifications") {
-          document.getElementById("loadingNotifications").style.display = "none";
-        } else {
-          document.getElementById("loadingDeviations").style.display = "none";
+        
+        document.getElementById("loadingNotifications").style.display = "none";
+        document.getElementById("notificationsTableContainer").style.display = "block";
+      }
+      
+      function renderDeviationsTable(rows) {
+        const tableBody = document.querySelector("#deviationsTable tbody");
+        if (!rows || rows.length === 0) {
+          document.getElementById("loadingDeviations").innerText = "No open deviations to display.";
+          return;
         }
+        
+        rows.forEach(row => {
+          const tr = document.createElement("tr");
+          tr.className = row.locationGroup;
+          
+          // Format the date nicely
+          const endDate = new Date(row.deviationEnd);
+          const formattedDate = endDate.toLocaleDateString();
+          
+          // Status based on days remaining
+          const statusClass = getDeviationStatus(row.daysRemaining);
+          const daysClass = getDaysClass(row.daysRemaining);
+          
+          tr.innerHTML = `
+            <td data-sort="check" data-value="${row.check}">${row.check}</td>
+            <td data-sort="location" data-value="${row.location}">${row.location}</td>
+            <td data-sort="daysRemaining" data-value="${row.daysRemaining}">
+              ${formattedDate} <span class="deviation-days ${daysClass}">(${row.daysRemaining} days)</span>
+            </td>
+            <td>${row.totalPrevDeviations}</td>
+            <td>
+              <span class="status-indicator ${statusClass}"></span>
+            </td>
+          `;
+          tableBody.appendChild(tr);
+        });
+        
+        document.getElementById("loadingDeviations").style.display = "none";
+        document.getElementById("deviationsTableContainer").style.display = "block";
       }
     </script>
   </body>
