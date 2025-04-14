@@ -450,18 +450,14 @@
             </div>
           </h2>
           <div id="loadingNotifications" class="loading">Loading notifications data...</div>
-          <div id="notificationsTableContainer" class="table-container" style="display: none;">
-            <table id="notificationsTable" class="responsive-table"></table>
-          </div>
+          <div id="notificationsTableContainer" class="table-container" style="display: none;"></div>
         </div>
 
         <!-- Deviations Section -->
         <div class="section">
           <h2 class="section-title"><i class="fas fa-exclamation-triangle icon"></i>Open Deviations</h2>
           <div id="loadingDeviations" class="loading">Loading deviations data...</div>
-          <div id="deviationsTableContainer" class="table-container" style="display: none;">
-            <table id="deviationsTable" class="responsive-table"></table>
-          </div>
+          <div id="deviationsTableContainer" class="table-container" style="display: none;"></div>
         </div>
 
         <!-- Legend -->
@@ -669,16 +665,21 @@
         }
       }
 
-      // Sort functions
+      // Sort functions - updated for new table structure
       function sortTable(tableId, column, asc = true) {
-        const table = document.getElementById(tableId);
-        const tbody = table.querySelector('tbody');
-        const rows = Array.from(tbody.querySelectorAll('tr'));
+        // Get the table body element to sort
+        const tableContainerId = tableId === 'notificationsTable' ? 
+          'notificationsTableContainer' : 'deviationsTableContainer';
+        const tableBody = document.querySelector(`#${tableContainerId} .table-body tbody`);
+        
+        if (!tableBody) return;
+        
+        const rows = Array.from(tableBody.querySelectorAll('tr'));
         
         // Sort based on the selected column
         const sortedRows = rows.sort((a, b) => {
-          const aValue = a.querySelector(`td[data-sort="${column}"]`).getAttribute('data-value');
-          const bValue = b.querySelector(`td[data-sort="${column}"]`).getAttribute('data-value');
+          const aValue = a.querySelector(`td[data-sort="${column}"]`)?.getAttribute('data-value') || '';
+          const bValue = b.querySelector(`td[data-sort="${column}"]`)?.getAttribute('data-value') || '';
           
           if (!isNaN(aValue) && !isNaN(bValue)) {
             return asc ? aValue - bValue : bValue - aValue;
@@ -688,16 +689,17 @@
         });
         
         // Clear table and add sorted rows
-        tbody.innerHTML = '';
-        sortedRows.forEach(row => tbody.appendChild(row));
+        tableBody.innerHTML = '';
+        sortedRows.forEach(row => tableBody.appendChild(row));
       }
 
-      // Attach event listeners to sortable headers
+      // Attach event listeners to sortable headers - updated for new structure
       function setupSorting() {
         document.querySelectorAll('.sortable').forEach(header => {
           header.addEventListener('click', function() {
             const column = this.getAttribute('data-sort');
-            const tableId = this.closest('table').id;
+            const tableId = this.closest('table').parentNode.parentNode.id === 'notificationsTableContainer' ? 
+              'notificationsTable' : 'deviationsTable';
             const asc = this.classList.contains('sorted-asc') ? false : true;
             
             // Reset all headers
@@ -772,13 +774,22 @@
           // Stop auto-cycling
           stopContentCycling();
           
-          // Exit browser fullscreen
-          if (document.exitFullscreen) {
-            document.exitFullscreen();
-          } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-          } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
+          // Exit browser fullscreen only if we're currently in fullscreen mode
+          if (document.fullscreenElement || 
+              document.webkitFullscreenElement || 
+              document.msFullscreenElement) {
+            
+            try {
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+              } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+              }
+            } catch (error) {
+              console.error("Error exiting fullscreen:", error);
+            }
           }
         }
       }
@@ -1252,74 +1263,82 @@
       }
       
       function renderDeviationsTable(rows) {
-        const table = document.querySelector("#deviationsTable");
+        // Completely rebuild the table container structure
+        const tableContainer = document.getElementById("deviationsTableContainer");
+        tableContainer.innerHTML = '';
         
-        // If the table is empty, create the structure
-        if (table.innerHTML === '') {
-          // Reset table structure
-          table.innerHTML = '';
-          
-          // Create thead element
-          const thead = document.createElement("thead");
-          thead.innerHTML = `
+        // Create the fixed header section
+        const headerSection = document.createElement("div");
+        headerSection.className = "table-header";
+        
+        const headerTable = document.createElement("table");
+        headerTable.className = "responsive-table";
+        headerTable.innerHTML = `
+          <thead>
             <tr>
-              <th class="sortable" data-sort="check">Check</th>
-              <th class="sortable" data-sort="location">Location</th>
-              <th class="sortable" data-sort="daysRemaining">End Date (Days Remaining)</th>
-              <th>Previous Deviations</th>
-              <th>Status</th>
+              <th class="sortable" data-sort="check" style="width: 30%">Check</th>
+              <th class="sortable" data-sort="location" style="width: 15%">Location</th>
+              <th class="sortable" data-sort="daysRemaining" style="width: 30%">End Date (Days Remaining)</th>
+              <th style="width: 15%">Previous Deviations</th>
+              <th style="width: 10%">Status</th>
             </tr>
-          `;
-          table.appendChild(thead);
-          
-          // Create tbody element
-          const tbody = document.createElement("tbody");
-          table.appendChild(tbody);
-        } else {
-          // Just clear the existing tbody content
-          const tbody = table.querySelector("tbody");
-          tbody.innerHTML = '';
-        }
+          </thead>
+        `;
+        headerSection.appendChild(headerTable);
+        tableContainer.appendChild(headerSection);
         
-        const tableBody = table.querySelector("tbody");
+        // Create the scrollable body section
+        const bodySection = document.createElement("div");
+        bodySection.className = "table-body";
         
+        const bodyTable = document.createElement("table");
+        bodyTable.id = "deviationsTableBody";
+        bodyTable.className = "responsive-table";
+        
+        // Create an empty body
+        const tbody = document.createElement("tbody");
+        bodyTable.appendChild(tbody);
+        
+        bodySection.appendChild(bodyTable);
+        tableContainer.appendChild(bodySection);
+        
+        // Now populate the table
         if (!rows || rows.length === 0) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td colspan="5" style="text-align: center; padding: 20px; color: var(--gray);">No open deviations to display.</td>`;
-          tableBody.appendChild(tr);
-          return;
+          tbody.appendChild(tr);
+        } else {
+          rows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.className = row.locationGroup;
+            
+            // Format the date as dd MMM
+            const endDate = new Date(row.deviationEnd);
+            const day = endDate.getDate().toString().padStart(2, '0');
+            const month = endDate.toLocaleString('en-US', { month: 'short' });
+            const formattedDate = `${day} ${month}`;
+            
+            // Status based on days remaining
+            const statusClass = getDeviationStatus(row.daysRemaining);
+            const daysClass = getDaysClass(row.daysRemaining);
+            
+            tr.innerHTML = `
+              <td data-sort="check" data-value="${row.check}">${row.check}</td>
+              <td data-sort="location" data-value="${row.location}">${row.location}</td>
+              <td data-sort="daysRemaining" data-value="${row.daysRemaining}">
+                ${formattedDate} <span class="deviation-days ${daysClass}">(${row.daysRemaining} days)</span>
+              </td>
+              <td>${row.totalPrevDeviations}</td>
+              <td>
+                <span class="status-indicator ${statusClass}"></span>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
         }
         
-        rows.forEach(row => {
-          const tr = document.createElement("tr");
-          tr.className = row.locationGroup;
-          
-          // Format the date as dd MMM
-          const endDate = new Date(row.deviationEnd);
-          const day = endDate.getDate().toString().padStart(2, '0');
-          const month = endDate.toLocaleString('en-US', { month: 'short' });
-          const formattedDate = `${day} ${month}`;
-          
-          // Status based on days remaining
-          const statusClass = getDeviationStatus(row.daysRemaining);
-          const daysClass = getDaysClass(row.daysRemaining);
-          
-          tr.innerHTML = `
-            <td data-sort="check" data-value="${row.check}">${row.check}</td>
-            <td data-sort="location" data-value="${row.location}">${row.location}</td>
-            <td data-sort="daysRemaining" data-value="${row.daysRemaining}">
-              ${formattedDate} <span class="deviation-days ${daysClass}">(${row.daysRemaining} days)</span>
-            </td>
-            <td>${row.totalPrevDeviations}</td>
-            <td>
-              <span class="status-indicator ${statusClass}"></span>
-            </td>
-          `;
-          tableBody.appendChild(tr);
-        });
-        
         document.getElementById("loadingDeviations").style.display = "none";
-        document.getElementById("deviationsTableContainer").style.display = "block";
+        tableContainer.style.display = "flex";
       }
     </script>
   </body>
