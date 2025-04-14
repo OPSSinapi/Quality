@@ -13,7 +13,10 @@
       h1 {
         text-align: center;
       }
-      #dashboardTable {
+      h2 {
+        margin-top: 40px;
+      }
+      table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
@@ -30,130 +33,238 @@
       tr:nth-child(even) {
         background: #f0f0f0;
       }
+      .tick {
+        color: green;
+        font-size: 1.2em;
+        text-align: center;
+      }
       .loading {
         text-align: center;
         margin-top: 40px;
         font-size: 1.2em;
       }
+      .bold {
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
     <h1>Quality Tracker Dashboard</h1>
-    <div id="loading" class="loading">Loading dashboard data...</div>
-    <table id="dashboardTable" style="display: none;">
+
+    <!-- Table for Current Cycle Notifications -->
+    <h2>Current Notifications</h2>
+    <div id="loadingNotifications" class="loading">
+      Loading notifications data...
+    </div>
+    <table id="notificationsTable" style="display: none;">
       <thead>
         <tr>
-          <th>Check Location Pair</th>
-          <th>DeviationEndDate</th>
-          <th>Notifications</th>
+          <th>Check</th>
+          <th>Location</th>
+          <th>Notification 1</th>
+          <th>Notification 2</th>
+          <th>Notification 3</th>
+          <th>Warning</th>
           <th>Total Previous Warnings</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows inserted here -->
+      </tbody>
+    </table>
+
+    <!-- Table for Open / Current Deviations -->
+    <h2>Open / Current Deviations</h2>
+    <div id="loadingDeviations" class="loading">
+      Loading deviations data...
+    </div>
+    <table id="deviationsTable" style="display: none;">
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>Location</th>
+          <th>DeviationEndDate (Days Remaining)</th>
           <th>Total Previous Deviations</th>
         </tr>
       </thead>
       <tbody>
-        <!-- Dashboard rows inserted here -->
+        <!-- Rows inserted here -->
       </tbody>
     </table>
 
     <script>
-      // Fetch data.json served by GitHub Pages.
+      // Utility: Returns a check mark if condition is true, otherwise blank.
+      function tick(yes) {
+        return yes ? "&#10004;" : "";
+      }
+
+      // Fetch the JSON data from data.json
       fetch("data.json")
         .then(response => {
           if (!response.ok) {
-            throw new Error("Network response was not ok");
+            throw new Error("Network response was not ok.");
           }
           return response.json();
         })
         .then(data => {
-          document.getElementById("loading").style.display = "none";
-          document.getElementById("dashboardTable").style.display = "table";
-
-          // Group rows by "Check Location Pairs"
-          const groups = {};
-          data.forEach(row => {
-            const clp = row["Check Location Pairs"];
-            if (!groups[clp]) {
-              groups[clp] = [];
-            }
-            groups[clp].push(row);
-          });
-
-          const tbody = document.querySelector("#dashboardTable tbody");
-
-          // Process each group
-          Object.keys(groups).forEach(groupKey => {
-            let groupRows = groups[groupKey];
-
-            // Sort rows in ascending order by Date (assumes mm/dd/yyyy or ISO-like format)
-            groupRows.sort((a, b) => new Date(a["Date"]) - new Date(b["Date"]));
-
-            // Determine the last warning row index.
-            // A row is considered a warning if its Warning# value is non-empty.
-            let lastWarningIndex = -1;
-            groupRows.forEach((r, idx) => {
-              if (r["Warning#"] && r["Warning#"].toString().trim() !== "") {
-                lastWarningIndex = idx;
-              }
-            });
-
-            // Define the "current cycle" as all rows after (i.e., with higher index than) lastWarningIndex.
-            let currentCycle = [];
-            if (lastWarningIndex >= 0) {
-              currentCycle = groupRows.slice(lastWarningIndex + 1);
-            } else {
-              // If no warning exists at all, current cycle is all rows.
-              currentCycle = groupRows;
-            }
-            if (currentCycle.length === 0) {
-              // If there are no notifications after the last warning, skip this group.
-              return;
-            }
-
-            // The latest notification is the one with the maximum Date among currentCycle.
-            let latestRow = currentCycle.reduce((latest, curr) => {
-              return new Date(curr["Date"]) > new Date(latest["Date"]) ? curr : latest;
-            }, currentCycle[0]);
-
-            // "Notifications": use the Offense# value from the latest notification row.
-            let notifications = latestRow["Offense#"];
-
-            // "Total Previous Warnings": count the warnings (non-empty Warning#) from all rows
-            // that occurred BEFORE the current cycle (i.e. in groupRows[0...lastWarningIndex])
-            let totalPrevWarnings = lastWarningIndex >= 0 ? groupRows.slice(0, lastWarningIndex + 1)
-              .filter(r => r["Warning#"] && r["Warning#"].toString().trim() !== "").length
-              : 0;
-
-            // "Total Previous Deviations": count the warnings whose Warning# starts with "Dev"
-            // from the rows before the current cycle.
-            let totalPrevDeviations = lastWarningIndex >= 0 ? groupRows.slice(0, lastWarningIndex + 1)
-              .filter(r => r["Warning#"] && r["Warning#"].toString().startsWith("Dev")).length
-              : 0;
-
-            // "DeviationEndDate": if the latest notification's Warning# starts with "Dev",
-            // display its DeviationEndDate along with days remaining in brackets.
-            let deviationEndDisplay = "";
-            if (latestRow["Warning#"] && latestRow["Warning#"].toString().startsWith("Dev")) {
-              let endDate = latestRow["DeviationEndDate"];
-              let daysRemaining = latestRow["DaysToDeviationEndDate"];
-              deviationEndDisplay = `${endDate} (${daysRemaining})`;
-            }
-
-            // Build a row for the dashboard.
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${groupKey}</td>
-              <td>${deviationEndDisplay}</td>
-              <td>${notifications}</td>
-              <td>${totalPrevWarnings}</td>
-              <td>${totalPrevDeviations}</td>
-            `;
-            tbody.appendChild(tr);
-          });
+          processData(data);
         })
         .catch(error => {
           console.error("Error fetching data.json:", error);
-          document.getElementById("loading").innerText = "Failed to load dashboard data.";
+          document.getElementById("loadingNotifications").innerText =
+            "Failed to load notifications data.";
+          document.getElementById("loadingDeviations").innerText =
+            "Failed to load deviations data.";
         });
+
+      function processData(data) {
+        // Group records by Check and Location (together)
+        // We assume each record has "Check" and "Location" fields.
+        const groups = {};
+        data.forEach(record => {
+          const key = record["Check"] + "|" + record["Location"];
+          if (!groups[key]) {
+            groups[key] = [];
+          }
+          groups[key].push(record);
+        });
+
+        // Prepare arrays for final rows for each table.
+        const notificationsRows = [];
+        const deviationsRows = [];
+
+        // Process each group.
+        Object.keys(groups).forEach(groupKey => {
+          const parts = groupKey.split("|");
+          const check = parts[0];
+          const location = parts[1];
+
+          // Sort the group by Date ascending.
+          const records = groups[groupKey].slice().sort((a, b) => {
+            return new Date(a["Date"]) - new Date(b["Date"]);
+          });
+
+          // Identify the index of the last warning in the group.
+          // A record is considered a warning if its Warning# is non-empty.
+          let lastWarningIndex = -1;
+          records.forEach((rec, idx) => {
+            if (rec["Warning#"] && rec["Warning#"].toString().trim() !== "") {
+              lastWarningIndex = idx;
+            }
+          });
+
+          // The current cycle is all records after the last warning.
+          let currentCycle = [];
+          if (lastWarningIndex >= 0) {
+            currentCycle = records.slice(lastWarningIndex + 1);
+          } else {
+            currentCycle = records;
+          }
+          if (currentCycle.length === 0) return; // nothing in current cycle
+
+          // The "latest notification" in the current cycle is the one with max Date.
+          let latest = currentCycle[currentCycle.length - 1];
+
+          // Count notifications in the current cycle.
+          const notifCount = currentCycle.length;
+
+          // Count Total Previous Warnings (non-deviation) from before current cycle.
+          let totalPrevWarnings = 0;
+          if (lastWarningIndex >= 0) {
+            totalPrevWarnings = records
+              .slice(0, lastWarningIndex + 1)
+              .filter(r => {
+                const w = r["Warning#"];
+                return w && w.toString().trim() !== "" && !w.toString().startsWith("Dev");
+              }).length;
+          }
+
+          // Count Total Previous Deviations from before current cycle.
+          let totalPrevDeviations = 0;
+          if (lastWarningIndex >= 0) {
+            totalPrevDeviations = records
+              .slice(0, lastWarningIndex + 1)
+              .filter(r => {
+                const w = r["Warning#"];
+                return w && w.toString().startsWith("Dev");
+              }).length;
+          }
+
+          // Determine if the latest notification is a warning.
+          // If it has a Warning#, then it is a final notification.
+          const warningLabel = latest["Warning#"] ? latest["Warning#"].toString().trim() : "";
+
+          // If the latest warning label begins with "Dev", then the group goes to Deviations table.
+          if (warningLabel.startsWith("Dev")) {
+            // For deviations table:
+            // Use the DeviationEndDate and DaysToDeviationEndDate from the latest notification.
+            const devEnd = latest["DeviationEndDate"] || "";
+            const daysRemaining = latest["DaysToDeviationEndDate"] || "";
+            deviationsRows.push({
+              check: check,
+              location: location,
+              deviationEndDisplay: devEnd + " (" + daysRemaining + ")",
+              totalPrevDeviations: totalPrevDeviations
+            });
+          } else {
+            // Otherwise, add this group to the Notifications table.
+            notificationsRows.push({
+              check: check,
+              location: location,
+              // Notification columns: tick if current cycle had at least that many notifications.
+              notif1: notifCount >= 1,
+              notif2: notifCount >= 2,
+              notif3: notifCount >= 3,
+              // If a warning exists in the current cycle, show it in bold.
+              warning: warningLabel !== "" ? warningLabel : "",
+              totalPrevWarnings: totalPrevWarnings,
+              // Also, show the latest Offense# from the latest notification as "Notifications".
+              notifications: latest["Offense#"] || ""
+            });
+          }
+        });
+
+        // Populate Notifications Table if any rows.
+        if (notificationsRows.length > 0) {
+          const notifTbody = document.querySelector("#notificationsTable tbody");
+          notificationsRows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${row.check}</td>
+              <td>${row.location}</td>
+              <td class="tick">${tick(row.notif1)}</td>
+              <td class="tick">${tick(row.notif2)}</td>
+              <td class="tick">${tick(row.notif3)}</td>
+              <td>${row.warning ? "<span class='bold'>" + row.warning + "</span>" : ""}</td>
+              <td>${row.totalPrevWarnings}</td>
+            `;
+            notifTbody.appendChild(tr);
+          });
+          document.getElementById("notificationsTable").style.display = "table";
+          document.getElementById("loadingNotifications").style.display = "none";
+        } else {
+          document.getElementById("loadingNotifications").innerText = "No current notifications.";
+        }
+
+        // Populate Deviations Table if any rows.
+        if (deviationsRows.length > 0) {
+          const devTbody = document.querySelector("#deviationsTable tbody");
+          deviationsRows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${row.check}</td>
+              <td>${row.location}</td>
+              <td>${row.deviationEndDisplay}</td>
+              <td>${row.totalPrevDeviations}</td>
+            `;
+            devTbody.appendChild(tr);
+          });
+          document.getElementById("deviationsTable").style.display = "table";
+          document.getElementById("loadingDeviations").style.display = "none";
+        } else {
+          document.getElementById("loadingDeviations").innerText = "No open deviations.";
+        }
+      }
     </script>
   </body>
 </html>
