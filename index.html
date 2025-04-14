@@ -164,6 +164,35 @@
         color: var(--secondary);
         border-bottom: 2px solid var(--primary);
         padding-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .view-toggle {
+        display: flex;
+        gap: 5px;
+      }
+
+      .view-btn {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        border: 1px solid var(--primary);
+        background-color: var(--white);
+        color: var(--primary);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .view-btn.active {
+        background-color: var(--primary);
+        color: var(--white);
+        font-weight: bold;
+      }
+
+      .view-btn:hover:not(.active) {
+        background-color: rgba(52, 152, 219, 0.1);
       }
 
       .loading {
@@ -413,7 +442,13 @@
       <div class="dashboard-content">
         <!-- Notifications Section -->
         <div class="section">
-          <h2 class="section-title"><i class="fas fa-bell icon"></i>Current Notifications</h2>
+          <h2 class="section-title">
+            <i class="fas fa-bell icon"></i>Current Notifications
+            <div class="view-toggle">
+              <button id="viewFilteredBtn" class="view-btn active">Show Critical (3+)</button>
+              <button id="viewAllBtn" class="view-btn">Show All</button>
+            </div>
+          </h2>
           <div id="loadingNotifications" class="loading">Loading notifications data...</div>
           <div id="notificationsTableContainer" class="table-container" style="display: none;">
             <table id="notificationsTable" class="responsive-table">
@@ -905,6 +940,29 @@
       document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
         
+        // Add event listeners for view toggle buttons
+        document.getElementById('viewFilteredBtn').addEventListener('click', function() {
+          if (!this.classList.contains('active')) {
+            this.classList.add('active');
+            document.getElementById('viewAllBtn').classList.remove('active');
+            if (window.dashboardData) {
+              renderNotificationsTable(window.dashboardData.criticalNotifications);
+              updateStats();
+            }
+          }
+        });
+        
+        document.getElementById('viewAllBtn').addEventListener('click', function() {
+          if (!this.classList.contains('active')) {
+            this.classList.add('active');
+            document.getElementById('viewFilteredBtn').classList.remove('active');
+            if (window.dashboardData) {
+              renderNotificationsTable(window.dashboardData.allNotifications);
+              updateStats();
+            }
+          }
+        });
+        
         // Handle ESC key to exit fullscreen
         document.addEventListener('fullscreenchange', function() {
           if (!document.fullscreenElement && isFullscreen) {
@@ -1111,30 +1169,71 @@
           return a.check.localeCompare(b.check);
         });
         
-        // Filter for displaying only notifications with 3 or more offenses
-        const filteredNotifications = notificationsRows.filter(row => row.notif3 === true);
+        // Store the notifications data for toggling views
+        window.dashboardData = {
+          allNotifications: notificationsRows,
+          criticalNotifications: notificationsRows.filter(row => row.notif3 === true),
+          deviations: deviationsRows,
+          uniqueLocations: uniqueLocations
+        };
         
-        renderNotificationsTable(filteredNotifications);
+        // Initially show critical notifications (3+)
+        renderNotificationsTable(window.dashboardData.criticalNotifications, true);
         renderDeviationsTable(deviationsRows);
         
         // Update dashboard stats
-        document.getElementById("totalIssuesCount").innerText = filteredNotifications.length + deviationsRows.length;
-        document.getElementById("deviationsCount").innerText = deviationsRows.length;
-        document.getElementById("locationsCount").innerText = uniqueLocations.size;
+        updateStats();
       }
       
-      function renderNotificationsTable(rows) {
+      // Update dashboard stats based on current view
+      function updateStats() {
+        const data = window.dashboardData;
+        const currentView = document.getElementById('viewFilteredBtn').classList.contains('active') ? 
+          data.criticalNotifications : data.allNotifications;
+          
+        document.getElementById("totalIssuesCount").innerText = currentView.length + data.deviations.length;
+        document.getElementById("deviationsCount").innerText = data.deviations.length;
+        document.getElementById("locationsCount").innerText = data.uniqueLocations.size;
+      }
+      
+      function renderNotificationsTable(rows, initTable = false) {
         const tableBody = document.querySelector("#notificationsTable tbody");
         
-        // Filter rows to only show entries with 3 or more notifications
-        const filteredRows = rows.filter(row => row.notif3 === true);
+        // Clear existing table data if needed
+        if (tableBody.innerHTML !== '' || initTable) {
+          // Create table header if initializing
+          if (initTable) {
+            const tableHead = document.querySelector("#notificationsTable thead");
+            if (!tableHead) {
+              const thead = document.createElement("thead");
+              thead.innerHTML = `
+                <tr>
+                  <th class="sortable" data-sort="check">Check</th>
+                  <th class="sortable" data-sort="location">Location</th>
+                  <th>Notif 1</th>
+                  <th>Notif 2</th>
+                  <th>Notif 3</th>
+                  <th>Warning</th>
+                  <th>Previous Warnings</th>
+                  <th>Status</th>
+                </tr>
+              `;
+              document.querySelector("#notificationsTable").appendChild(thead);
+            }
+          }
+          
+          // Clear existing rows
+          tableBody.innerHTML = '';
+        }
         
-        if (!filteredRows || filteredRows.length === 0) {
-          document.getElementById("loadingNotifications").innerText = "No notifications with 3+ offenses to display.";
+        if (!rows || rows.length === 0) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td colspan="8" style="text-align: center; padding: 20px; color: var(--gray);">No notifications to display.</td>`;
+          tableBody.appendChild(tr);
           return;
         }
         
-        filteredRows.forEach(row => {
+        rows.forEach(row => {
           const tr = document.createElement("tr");
           tr.className = row.locationGroup;
           
