@@ -318,6 +318,14 @@
       .fullscreen-mode .table-container {
         max-height: calc(100vh - 200px);
         flex-grow: 1;
+        overflow-y: auto;
+      }
+      
+      /* Make sure table headers work in fullscreen mode */
+      .fullscreen-mode .responsive-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
       }
       
       /* Hide inactive sections when in fullscreen cycling mode */
@@ -1103,23 +1111,30 @@
           return a.check.localeCompare(b.check);
         });
         
-        renderNotificationsTable(notificationsRows);
+        // Filter for displaying only notifications with 3 or more offenses
+        const filteredNotifications = notificationsRows.filter(row => row.notif3 === true);
+        
+        renderNotificationsTable(filteredNotifications);
         renderDeviationsTable(deviationsRows);
         
         // Update dashboard stats
-        document.getElementById("totalIssuesCount").innerText = notificationsRows.length + deviationsRows.length;
+        document.getElementById("totalIssuesCount").innerText = filteredNotifications.length + deviationsRows.length;
         document.getElementById("deviationsCount").innerText = deviationsRows.length;
         document.getElementById("locationsCount").innerText = uniqueLocations.size;
       }
       
       function renderNotificationsTable(rows) {
         const tableBody = document.querySelector("#notificationsTable tbody");
-        if (!rows || rows.length === 0) {
-          document.getElementById("loadingNotifications").innerText = "No notifications to display.";
+        
+        // Filter rows to only show entries with 3 or more notifications
+        const filteredRows = rows.filter(row => row.notif3 === true);
+        
+        if (!filteredRows || filteredRows.length === 0) {
+          document.getElementById("loadingNotifications").innerText = "No notifications with 3+ offenses to display.";
           return;
         }
         
-        rows.forEach(row => {
+        filteredRows.forEach(row => {
           const tr = document.createElement("tr");
           tr.className = row.locationGroup;
           
