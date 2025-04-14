@@ -451,23 +451,7 @@
           </h2>
           <div id="loadingNotifications" class="loading">Loading notifications data...</div>
           <div id="notificationsTableContainer" class="table-container" style="display: none;">
-            <table id="notificationsTable" class="responsive-table">
-              <thead>
-                <tr>
-                  <th class="sortable" data-sort="check">Check</th>
-                  <th class="sortable" data-sort="location">Location</th>
-                  <th>Notif 1</th>
-                  <th>Notif 2</th>
-                  <th>Notif 3</th>
-                  <th>Warning</th>
-                  <th>Previous Warnings</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Data rows will be injected here -->
-              </tbody>
-            </table>
+            <table id="notificationsTable" class="responsive-table"></table>
           </div>
         </div>
 
@@ -476,20 +460,7 @@
           <h2 class="section-title"><i class="fas fa-exclamation-triangle icon"></i>Open Deviations</h2>
           <div id="loadingDeviations" class="loading">Loading deviations data...</div>
           <div id="deviationsTableContainer" class="table-container" style="display: none;">
-            <table id="deviationsTable" class="responsive-table">
-              <thead>
-                <tr>
-                  <th class="sortable" data-sort="check">Check</th>
-                  <th class="sortable" data-sort="location">Location</th>
-                  <th class="sortable" data-sort="daysRemaining">End Date (Days Remaining)</th>
-                  <th>Previous Deviations</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Data rows will be injected here -->
-              </tbody>
-            </table>
+            <table id="deviationsTable" class="responsive-table"></table>
           </div>
         </div>
 
@@ -1197,34 +1168,39 @@
       }
       
       function renderNotificationsTable(rows, initTable = false) {
-        const tableBody = document.querySelector("#notificationsTable tbody");
+        const table = document.querySelector("#notificationsTable");
         
-        // Clear existing table data if needed
-        if (tableBody.innerHTML !== '' || initTable) {
-          // Create table header if initializing
-          if (initTable) {
-            const tableHead = document.querySelector("#notificationsTable thead");
-            if (!tableHead) {
-              const thead = document.createElement("thead");
-              thead.innerHTML = `
-                <tr>
-                  <th class="sortable" data-sort="check">Check</th>
-                  <th class="sortable" data-sort="location">Location</th>
-                  <th>Notif 1</th>
-                  <th>Notif 2</th>
-                  <th>Notif 3</th>
-                  <th>Warning</th>
-                  <th>Previous Warnings</th>
-                  <th>Status</th>
-                </tr>
-              `;
-              document.querySelector("#notificationsTable").appendChild(thead);
-            }
-          }
+        // If the table is empty, create the structure
+        if (table.innerHTML === '' || initTable) {
+          // Reset table structure
+          table.innerHTML = '';
           
-          // Clear existing rows
-          tableBody.innerHTML = '';
+          // Create thead element
+          const thead = document.createElement("thead");
+          thead.innerHTML = `
+            <tr>
+              <th class="sortable" data-sort="check">Check</th>
+              <th class="sortable" data-sort="location">Location</th>
+              <th>Notif 1</th>
+              <th>Notif 2</th>
+              <th>Notif 3</th>
+              <th>Warning</th>
+              <th>Previous Warnings</th>
+              <th>Status</th>
+            </tr>
+          `;
+          table.appendChild(thead);
+          
+          // Create tbody element
+          const tbody = document.createElement("tbody");
+          table.appendChild(tbody);
+        } else {
+          // Just clear the existing tbody content
+          const tbody = table.querySelector("tbody");
+          tbody.innerHTML = '';
         }
+        
+        const tableBody = table.querySelector("tbody");
         
         if (!rows || rows.length === 0) {
           const tr = document.createElement("tr");
@@ -1268,9 +1244,41 @@
       }
       
       function renderDeviationsTable(rows) {
-        const tableBody = document.querySelector("#deviationsTable tbody");
+        const table = document.querySelector("#deviationsTable");
+        
+        // If the table is empty, create the structure
+        if (table.innerHTML === '') {
+          // Reset table structure
+          table.innerHTML = '';
+          
+          // Create thead element
+          const thead = document.createElement("thead");
+          thead.innerHTML = `
+            <tr>
+              <th class="sortable" data-sort="check">Check</th>
+              <th class="sortable" data-sort="location">Location</th>
+              <th class="sortable" data-sort="daysRemaining">End Date (Days Remaining)</th>
+              <th>Previous Deviations</th>
+              <th>Status</th>
+            </tr>
+          `;
+          table.appendChild(thead);
+          
+          // Create tbody element
+          const tbody = document.createElement("tbody");
+          table.appendChild(tbody);
+        } else {
+          // Just clear the existing tbody content
+          const tbody = table.querySelector("tbody");
+          tbody.innerHTML = '';
+        }
+        
+        const tableBody = table.querySelector("tbody");
+        
         if (!rows || rows.length === 0) {
-          document.getElementById("loadingDeviations").innerText = "No open deviations to display.";
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td colspan="5" style="text-align: center; padding: 20px; color: var(--gray);">No open deviations to display.</td>`;
+          tableBody.appendChild(tr);
           return;
         }
         
