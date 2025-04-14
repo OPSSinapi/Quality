@@ -100,18 +100,10 @@
     <script>
       // Utility: returns a tick mark (✓) if yes is true, otherwise an empty string.
       function tick(yes) {
-        return yes ? "&#10004;" : "";
+        return yes ? "✔" : "";
       }
       
-      // Utility: Check if a date is within a range
-      function isDateInRange(date, startDate, endDate) {
-        const checkDate = new Date(date);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        return checkDate >= start && checkDate <= end;
-      }
-      
-      // Fetch the JSON data from data.json (ensure it is published by GitHub Pages)
+      // Fetch the JSON data from data.json
       fetch("data.json")
         .then(response => {
           if (!response.ok) {
@@ -129,13 +121,10 @@
         });
       
       function processData(data) {
-        /* 
-          Group records by Check and Location.
-          The group key is "Check|Location". Each group is an array of records.
-        */
+        const currentDate = new Date();
+        // Group records by Check and Location
         const groups = {};
         data.forEach(record => {
-          // Ensure required fields exist.
           let check = record["Check"] || "Unknown";
           let location = record["Location"] || "Unknown";
           let key = check + "|" + location;
@@ -145,20 +134,16 @@
           groups[key].push(record);
         });
         
-        // Prepare arrays for notifications and deviations matrix rows.
         const notificationsRows = [];
         const deviationsRows = [];
         
-        // Process each group
         Object.keys(groups).forEach((key, groupIndex) => {
           const parts = key.split("|");
           const check = parts[0];
           const location = parts[1];
-          // Sort records by Date (ascending order)
           const records = groups[key].slice().sort((a, b) => new Date(a["Date"]) - new Date(b["Date"]));
           
-          // Find the index of the last warning in the group (from previous cycles)
-          // Use any record with a nonempty Warning#.
+          // Find the last warning index
           let lastWarnIndex = -1;
           records.forEach((rec, i) => {
             if (rec["Warning#"] && rec["Warning#"].toString().trim() !== "") {
@@ -166,67 +151,66 @@
             }
           });
           
-          // The current cycle consists only of records after the last warning.
           let currentCycle = (lastWarnIndex >= 0) ? records.slice(lastWarnIndex + 1) : records.slice();
-          if (currentCycle.length === 0) return; // nothing to show for this group.
+          if (currentCycle.length === 0) return;
           
-          // For the Notifications Matrix we count notifications only in current cycle.
-          // The latest notification in the current cycle is the one with the maximum date.
           let latest = currentCycle[currentCycle.length - 1];
-          
-          // Determine which matrix to use:
-          // If the latest record's Warning# exists and starts with "Dev", place this group in the Deviations Matrix.
           let warningLabel = latest["Warning#"] ? latest["Warning#"].toString().trim() : "";
-          if (warningLabel.startsWith("Dev")) {
-            // Build deviations row.
-            const devStart = latest["DeviationStartDate"] || "";
-            const devEnd = latest["DeviationEndDate"] || "";
-            const daysRemaining = latest["DaysToDeviationEndDate"] || "";
-            
-            // Count previous deviation warnings (from records before the current cycle)
-            let totalPrevDeviations = (lastWarnIndex >= 0) ?
-              records.slice(0, lastWarnIndex + 1).filter(r => {
-                let w = r["Warning#"];
-                return w && w.toString().startsWith("Dev");
-              }).length : 0;
-            
-            // Check if deviation is still open
-            // Find any warnings within the deviation date range, excluding the current record
-            const warningsInRange = records.filter(r => 
-              r !== latest && // Exclude the current record itself
-              r["Warning#"] && 
-              r["Warning#"].toString().startsWith("Warn") && 
-              r["Date"] && 
-              isDateInRange(r["Date"], devStart, devEnd)
-            );
-            
-            // Only add to deviations rows if no warnings found in the date range
-            if (warningsInRange.length === 0) {
-              deviationsRows.push({
-                check: check,
-                location: location,
-                deviationEnd: devEnd,
-                daysRemaining: daysRemaining,
-                totalPrevDeviations: totalPrevDeviations
+          
+          // Check for open deviations
+          let latestDeviation = null;
+          let isOpen = false;
+          // Find the latest deviation record
+          for (let i = records.length - 1; i >= 0; i--) {
+            let rec = records[i];
+            let warn = rec["Warning#"] ? rec["Warning#"].toString().trim() : "";
+            if (warn.startsWith("Dev") && rec["DeviationStartDate"] && rec["DeviationEndDate"]) {
+              latestDeviation = rec;
+              const startDate = new Date(rec["DeviationStartDate"]);
+              const endDate = new Date(rec["DeviationEndDate"]);
+              // Check if there are any other deviation warnings within the date range
+              const hasWarningsInRange = records.some(otherRec => {
+                if (otherRec === rec) return false; // Exclude the deviation record itself
+                let otherDate = new Date(otherRec["Date"]);
+                let otherWarn = otherRec["Warning#"] ? otherRec["Warning#"].toString().trim() : "";
+                return (
+                  otherWarn.startsWith("Dev") &&
+                  otherDate >= startDate &&
+                  otherDate <= endDate
+                );
               });
+              isOpen = !hasWarningsInRange;
+              break;
             }
+          }
+          
+          if (latestDeviation && isOpen) {
+            // Build deviations row for open deviation
+            const devEnd = latestDeviation["DeviationEndDate"] || "";
+            const daysRemaining = Math.ceil((new Date(devEnd) - currentDate) / (1000 * 60 * 60 * 24));
+            let totalPrevDeviations = records.filter(r => {
+              let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
+              return w.startsWith("Dev") && new Date(r["Date"]) < new Date(latestDeviation["Date"]);
+            }).length;
+            deviationsRows.push({
+              check: check,
+              location: location,
+              deviationEnd: devEnd,
+              daysRemaining: daysRemaining,
+              totalPrevDeviations: totalPrevDeviations
+            });
           } else {
-            // Build notifications row.
-            // Count only notifications in the current cycle (i.e. the number of records in currentCycle)
+            // Build notifications row
             const notifCount = currentCycle.length;
-            // Ticks for Notification 1, 2, 3 based solely on the current cycle.
             let notif1 = notifCount >= 1;
             let notif2 = notifCount >= 2;
             let notif3 = notifCount >= 3;
-            // For Warning, if the latest record has a warning (and it is not a Dev) display it in bold.
             let warningDisplay = warningLabel !== "" ? `<span class="bold">${warningLabel}</span>` : "";
-            // Count total previous warnings from earlier cycles (records before currentCycle) that are not deviations.
             let totalPrevWarnings = (lastWarnIndex >= 0) ? 
-                records.slice(0, lastWarnIndex + 1).filter(r => {
-                  let w = r["Warning#"];
-                  return w && w.toString().trim() !== "" && !w.toString().startsWith("Dev");
-                }).length : 0;
-            // Latest Offense# in current cycle is our Notifications value.
+              records.slice(0, lastWarnIndex + 1).filter(r => {
+                let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
+                return w && w !== "" && !w.startsWith("Dev");
+              }).length : 0;
             let notificationsVal = latest["Offense#"] || "";
             notificationsRows.push({
               check: check,
@@ -245,8 +229,6 @@
         renderMatrix("deviationsMatrix", deviationsRows, "deviations");
       }
       
-      // Renders a matrix grid in the specified containerId.
-      // type: "notifications" or "deviations"
       function renderMatrix(containerId, rows, type) {
         const container = document.getElementById(containerId);
         if (!rows || rows.length === 0) {
@@ -255,13 +237,10 @@
           ).innerText = "No data to display.";
           return;
         }
-        // For each row, create a grid row div.
-        // Alternate background for grouping (using odd/even group index).
         rows.forEach((row, index) => {
           const rowDiv = document.createElement("div");
           rowDiv.className = "matrix-row " + (index % 2 === 0 ? "group-even" : "group-odd");
           if (type === "notifications") {
-            // Columns: Check, Location, Notification 1, Notification 2, Notification 3, Warning, Total Previous Warnings, Notifications
             rowDiv.innerHTML = `
               <div class="cell">${row.check}</div>
               <div class="cell">${row.location}</div>
@@ -273,7 +252,6 @@
               <div class="cell">${row.notifications}</div>
             `;
           } else if (type === "deviations") {
-            // Columns: Check, Location, DeviationEndDate (Days Remaining), Total Previous Deviations
             rowDiv.innerHTML = `
               <div class="cell">${row.check}</div>
               <div class="cell">${row.location}</div>
