@@ -227,6 +227,10 @@
         background-color: var(--location-other);
       }
 
+      .location-forms td {
+        background-color: var(--location-forms);
+      }
+
       /* Status indicators */
       .status-indicator {
         display: inline-block;
@@ -454,12 +458,126 @@
             <div class="legend-color" style="background-color: var(--location-forms);"></div>
             <span>Forms & Registers</span>
           </div>
-        <div id="cyclingIndicator" class="cycling-indicator">Auto-cycling content...</div>
         </div>
+        <div id="cyclingIndicator" class="cycling-indicator">Auto-cycling content...</div>
       </div>
     </div>
 
     <script>
+      // Function to define all check-location pairs for complete coverage
+      function addAllChecks() {
+        // This array contains all Check-Location pairs that should be tracked
+        // Format: [Check, Location]
+        return [
+          // Production Lines
+          // SCD
+          ["Overfilling of Feeders", "SCD"],
+          ["Components on the floor", "SCD"],
+          ["Build-up of subassemblies", "SCD"],
+          ["Cluttered workspaces", "SCD"],
+          ["Incorrect utilization of containers", "SCD"],
+          ["Rework done on the production line", "SCD"],
+          ["Cleaning", "SCD"],
+          ["More than one component in a bin/container/feeder", "SCD"],
+          ["Clear seperation of tested and untested components", "SCD"],
+          ["Inadequate or dirty PPE Usage", "SCD"],
+          
+          // SUM
+          ["Overfilling of Feeders", "SUM"],
+          ["Components on the floor", "SUM"],
+          ["Build-up of subassemblies", "SUM"],
+          ["Cluttered workspaces", "SUM"],
+          ["Incorrect utilization of containers", "SUM"],
+          ["Rework done on the production line", "SUM"],
+          ["Cleaning", "SUM"],
+          ["More than one component in a bin/container/feeder", "SUM"],
+          ["Clear seperation of tested and untested components", "SUM"],
+          ["Inadequate or dirty PPE Usage", "SUM"],
+          
+          // LEVO
+          ["Overfilling of Feeders", "LEVO"],
+          ["Components on the floor", "LEVO"],
+          ["Build-up of subassemblies", "LEVO"],
+          ["Cluttered workspaces", "LEVO"],
+          ["Incorrect utilization of containers", "LEVO"],
+          ["Rework done on the production line", "LEVO"],
+          ["Cleaning", "LEVO"],
+          ["More than one component in a bin/container/feeder", "LEVO"],
+          ["Clear seperation of tested and untested components", "LEVO"],
+          ["Inadequate or dirty PPE Usage", "LEVO"],
+          
+          // SCALPEL
+          ["Overfilling of Feeders", "SCALPEL"],
+          ["Components on the floor", "SCALPEL"],
+          ["Build-up of subassemblies", "SCALPEL"],
+          ["Cluttered workspaces", "SCALPEL"],
+          ["Incorrect utilization of containers", "SCALPEL"],
+          ["Rework done on the production line", "SCALPEL"],
+          ["Cleaning", "SCALPEL"],
+          ["More than one component in a bin/container/feeder", "SCALPEL"],
+          ["Clear seperation of tested and untested components", "SCALPEL"],
+          ["Inadequate or dirty PPE Usage", "SCALPEL"],
+          
+          // POPUP
+          ["Overfilling of Feeders", "POPUP"],
+          ["Components on the floor", "POPUP"],
+          ["Build-up of subassemblies", "POPUP"],
+          ["Cluttered workspaces", "POPUP"],
+          ["Incorrect utilization of containers", "POPUP"],
+          ["Rework done on the production line", "POPUP"],
+          ["Cleaning", "POPUP"],
+          ["More than one component in a bin/container/feeder", "POPUP"],
+          ["Clear seperation of tested and untested components", "POPUP"],
+          
+          // XL2000/UBT
+          ["Overfilling of Feeders", "XL2000/UBT"],
+          ["Components on the floor", "XL2000/UBT"],
+          ["Build-up of subassemblies", "XL2000/UBT"],
+          ["Cluttered workspaces", "XL2000/UBT"],
+          ["Incorrect utilization of containers", "XL2000/UBT"],
+          ["Rework done on the production line", "XL2000/UBT"],
+          ["Cleaning", "XL2000/UBT"],
+          ["More than one component in a bin/container/feeder", "XL2000/UBT"],
+          ["Clear seperation of tested and untested components", "XL2000/UBT"],
+          
+          // Areas
+          ["Maglocks Not Working", "PO"],
+          ["Maglocks Not Working", "PA"],
+          ["Maglocks Not Working", "MH"],
+          ["Maglocks Not Working", "CZ"],
+          ["Hand Soap and Sanitisers Empty", "CZ"],
+          ["Hand Soap and Sanitisers Empty", "PO"],
+          ["Contaminated Floor Mats", "CR"],
+          ["Contaminated Floor Mats", "CZ"],
+          ["Contaminated Floor Mats", "PO"],
+          
+          // Clean Room
+          ["Manometer Readings out of Spec: Pressure Differential below 5Pa", "CR"],
+          ["Temperature Readings out of Spec: Out of 18-26 deg C range", "CR"],
+          ["Air Conditioning Not Maintained at Specified temperatures: 22deg C and cool", "CR"],
+          ["AHU Not Functioning: Air Handling unit switched 1 hour before production starts", "CR"],
+          ["AHU Not Functioning: Unit only switched off when production is done for the week", "CR"],
+          ["Microbial Control in the CR Not maintained based on test results from independant laboratory", "CR"],
+          
+          // Change Zone
+          ["Temperature Readings out of Spec: Out of 18-26 deg C range", "CZ"],
+          ["Air Conditioning Not Maintained at Specified temperatures: 22deg C and cool", "CZ"],
+          ["AHU Not Functioning: Air Handling unit switched 1 hour before production starts", "CZ"],
+          ["AHU Not Functioning: Unit only switched off when production is done for the week", "CZ"],
+          ["Cleaning", "CZ"],
+          
+          // Forms and registers
+          ["Maglock Checks", "MF45 REV 00"],
+          ["Mat cleaning and solution", "MF49 REV 02"],
+          ["Cleaning Checklist", "MF02 REV 09"],
+          ["Deep Cleaning Register", "MF54 REV 01"],
+          ["Dust Coat Weekly Inspection Register", "MF55 REV 02"],
+          ["Glove Issue Register", "MF03 REV 00"],
+          ["PPE Register", "MF53 REV 00"],
+          ["Earplug Register", "MF91 REV 00"]
+        ];
+      }
+
       // Utility functions
       function getLocationGroup(location) {
         // Production line locations (prioritized)
