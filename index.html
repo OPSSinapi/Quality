@@ -1,1 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Quality Tracker Dashboard</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background: #f9f9f9;
+        color: #333;
+      }
+      h1 {
+        text-align: center;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th, td {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        text-align: left;
+      }
+      th {
+        background: #007acc;
+        color: white;
+      }
+      tr:nth-child(even) {
+        background: #efefef;
+      }
+      .countdown {
+        font-weight: bold;
+        color: #d9534f;
+      }
+      .loading {
+        text-align: center;
+        margin-top: 40px;
+        font-size: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Quality Tracker Dashboard</h1>
+    <div id="loading" class="loading">Loading dashboard data...</div>
+    <table id="dashboardTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>Check Location Pair</th>
+          <th>Latest Warning#</th>
+          <th>Warning Type</th>
+          <th>Dev Countdown (Days)</th>
+          <th>Total Dev Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows will be inserted here -->
+      </tbody>
+    </table>
+
+    <script>
+      // Fetch the JSON data (data.json must be published via GitHub Pages)
+      fetch('data.json')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Hide loading message and show table
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('dashboardTable').style.display = 'table';
+
+          // Group rows by "Check Location Pairs"
+          const groups = {};
+          data.forEach(row => {
+            // Expect JSON object keys to match column names exactly:
+            // Date, Check Location Pairs, Check, Location, Rating, Offense#, Warning#,
+            // DeviationStartDate, DeviationEndDate, DaysToDeviationEndDate
+            const clp = row["Check Location Pairs"];
+            if (!groups[clp]) {
+              groups[clp] = [];
+            }
+            groups[clp].push(row);
+          });
+
+          // Reference to the table body
+          const tbody = document.querySelector('#dashboardTable tbody');
+
+          // Process each group
+          for (const clp in groups) {
+            // Filter only rows with a non-empty Warning#
+            const rowsWithWarning = groups[clp].filter(r => r["Warning#"] && r["Warning#"].toString().trim() !== "");
+            if (rowsWithWarning.length === 0) {
+              continue;
+            }
+            // Sort rows by the Date field descending (assuming Date format mm/dd/yyyy)
+            rowsWithWarning.sort((a, b) => {
+              return new Date(b["Date"]) - new Date(a["Date"]);
+            });
+            // The latest row is first in the sorted array.
+            const latest = rowsWithWarning[0];
+
+            let warningType = "";
+            let countdown = "-";
+            let totalDevCount = "-";
+
+            // Determine if the latest warning is a "Dev" or "Warn"
+            if (latest["Warning#"].toString().startsWith("Dev")) {
+              warningType = "Dev";
+              // Use the DaysToDeviationEndDate field for the countdown
+              countdown = latest["DaysToDeviationEndDate"];
+              // Count all the rows for this group with a Dev warning
+              totalDevCount = rowsWithWarning.filter(
+                r => r["Warning#"].toString().startsWith("Dev")
+              ).length;
+            } else if (latest["Warning#"].toString().startsWith("Warn")) {
+              warningType = "Warn";
+            }
+
+            // Create a table row with the data.
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${clp}</td>
+              <td>${latest["Warning#"]}</td>
+              <td>${warningType}</td>
+              <td class="countdown">${countdown}</td>
+              <td>${totalDevCount}</td>
+            `;
+            tbody.appendChild(tr);
+          }
+        })
+        .catch(error => {
+          console.error("Error fetching data.json:", error);
+          document.getElementById('loading').innerText = "Failed to load dashboard data.";
+        });
+    </script>
+  </body>
+</html>
 
