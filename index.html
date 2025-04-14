@@ -78,6 +78,7 @@
         <div class="cell">Notification 3</div>
         <div class="cell">Warning</div>
         <div class="cell">Total Previous Warnings</div>
+        <div class="cell">Notifications</div>
       </div>
       <!-- Data rows will be injected here -->
     </div>
@@ -100,13 +101,6 @@
       // Utility: returns a tick mark (✓) if yes is true, otherwise an empty string.
       function tick(yes) {
         return yes ? "✔" : "";
-      }
-      
-      // Utility: Format date to YYYY-MM-DD
-      function formatDate(dateString) {
-        if (!dateString) return "";
-        const date = new Date(dateString);
-        return date.toISOString().split('T')[0];
       }
       
       // Fetch the JSON data from data.json
@@ -192,8 +186,8 @@
           
           if (latestDeviation && isOpen) {
             // Build deviations row for open deviation
-            const devEnd = formatDate(latestDeviation["DeviationEndDate"]);
-            const daysRemaining = Math.ceil((new Date(latestDeviation["DeviationEndDate"]) - currentDate) / (1000 * 60 * 60 * 24));
+            const devEnd = latestDeviation["DeviationEndDate"] || "";
+            const daysRemaining = Math.ceil((new Date(devEnd) - currentDate) / (1000 * 60 * 60 * 24));
             let totalPrevDeviations = records.filter(r => {
               let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
               return w.startsWith("Dev") && new Date(r["Date"]) < new Date(latestDeviation["Date"]);
@@ -217,6 +211,7 @@
                 let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
                 return w && w !== "" && !w.startsWith("Dev");
               }).length : 0;
+            let notificationsVal = latest["Offense#"] || "";
             notificationsRows.push({
               check: check,
               location: location,
@@ -224,7 +219,8 @@
               notif2: notif2,
               notif3: notif3,
               warning: warningDisplay,
-              totalPrevWarnings: totalPrevWarnings
+              totalPrevWarnings: totalPrevWarnings,
+              notifications: notificationsVal
             });
           }
         });
@@ -253,6 +249,7 @@
               <div class="cell">${tick(row.notif3)}</div>
               <div class="cell">${row.warning || ""}</div>
               <div class="cell">${row.totalPrevWarnings}</div>
+              <div class="cell">${row.notifications}</div>
             `;
           } else if (type === "deviations") {
             rowDiv.innerHTML = `
