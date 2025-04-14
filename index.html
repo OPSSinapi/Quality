@@ -371,10 +371,6 @@
           <div class="stat-label">Active Issues</div>
         </div>
         <div class="stat-card">
-          <div class="stat-number" id="warningsCount">-</div>
-          <div class="stat-label">Current Warnings</div>
-        </div>
-        <div class="stat-card">
           <div class="stat-number" id="deviationsCount">-</div>
           <div class="stat-label">Open Deviations</div>
         </div>
@@ -400,7 +396,6 @@
                   <th>Notif 3</th>
                   <th>Warning</th>
                   <th>Previous Warnings</th>
-                  <th>Notifications</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -826,20 +821,25 @@
           if (latestDeviation && isOpen) {
             // Build deviations row for open deviation
             const devEnd = latestDeviation["DeviationEndDate"] || "";
-            const daysRemaining = Math.ceil((new Date(devEnd) - currentDate) / (1000 * 60 * 60 * 24));
-            let totalPrevDeviations = records.filter(r => {
-              let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
-              return w.startsWith("Dev") && new Date(r["Date"]) < new Date(latestDeviation["Date"]);
-            }).length;
+            const endDate = new Date(devEnd);
             
-            deviationsRows.push({
-              check: check,
-              location: location,
-              deviationEnd: devEnd,
-              daysRemaining: daysRemaining,
-              totalPrevDeviations: totalPrevDeviations,
-              locationGroup: getLocationGroup(location)
-            });
+            // Only include deviations where end date is in the future
+            if (endDate >= currentDate) {
+              const daysRemaining = Math.ceil((endDate - currentDate) / (1000 * 60 * 60 * 24));
+              let totalPrevDeviations = records.filter(r => {
+                let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
+                return w.startsWith("Dev") && new Date(r["Date"]) < new Date(latestDeviation["Date"]);
+              }).length;
+              
+              deviationsRows.push({
+                check: check,
+                location: location,
+                deviationEnd: devEnd,
+                daysRemaining: daysRemaining,
+                totalPrevDeviations: totalPrevDeviations,
+                locationGroup: getLocationGroup(location)
+              });
+            }
           } else {
             // Build notifications row
             const notifCount = currentCycle.length;
@@ -901,7 +901,6 @@
         
         // Update dashboard stats
         document.getElementById("totalIssuesCount").innerText = notificationsRows.length + deviationsRows.length;
-        document.getElementById("warningsCount").innerText = warningsCount;
         document.getElementById("deviationsCount").innerText = deviationsRows.length;
         document.getElementById("locationsCount").innerText = uniqueLocations.size;
       }
@@ -936,7 +935,6 @@
               ${row.warning ? `<div class="warning-badge">${row.warning}</div>` : ''}
             </td>
             <td>${row.totalPrevWarnings}</td>
-            <td>${row.notifications}</td>
             <td>
               <span class="status-indicator ${statusClass}"></span>
             </td>
