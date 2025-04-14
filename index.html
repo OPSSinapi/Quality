@@ -189,13 +189,18 @@
         color: var(--white);
       }
 
+      .responsive-table thead {
+        background-color: var(--primary);
+        color: var(--white);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
       .responsive-table th {
         padding: 0.75rem 0.5rem;
         text-align: left;
         font-weight: 600;
-        position: sticky;
-        top: 0;
-        z-index: 10;
         background-color: var(--primary);
       }
 
@@ -307,6 +312,17 @@
         overflow-y: auto;
         border-radius: 8px;
         border: 1px solid rgba(0,0,0,0.1);
+      }
+
+      /* In fullscreen mode, tables take full height */
+      .fullscreen-mode .table-container {
+        max-height: calc(100vh - 200px);
+        flex-grow: 1;
+      }
+      
+      /* Hide inactive sections when in fullscreen cycling mode */
+      .fullscreen-mode .section.inactive {
+        display: none;
       }
 
       /* Legend */
@@ -755,73 +771,108 @@
       
       function startContentCycling() {
         const sections = [
-          { element: document.getElementById('notificationsTableContainer'), scrollable: true },
-          { element: document.getElementById('deviationsTableContainer'), scrollable: true }
+          { 
+            element: document.getElementById('notificationsTableContainer'), 
+            parent: document.querySelector('.section:nth-child(1)'),
+            title: "Current Notifications"
+          },
+          { 
+            element: document.getElementById('deviationsTableContainer'), 
+            parent: document.querySelector('.section:nth-child(2)'),
+            title: "Open Deviations"
+          }
         ];
         
         let currentSectionIndex = 0;
         let scrollPosition = 0;
-        let scrollDirection = 'down';
-        let currentSection = sections[currentSectionIndex];
+        let cycleDuration = 30000; // 30 seconds per table section
+        let scrollStep = 1; // pixels per tick
+        let cycleTimeout;
         
         document.getElementById('cyclingIndicator').style.display = 'block';
         
-        // Reset all scroll positions
-        sections.forEach(section => {
-          if (section.scrollable) {
-            section.element.scrollTop = 0;
-          }
-        });
-        
-        // Function to get the scroll step (smaller steps for smoother scrolling)
-        function getScrollStep(container) {
-          return Math.max(30, container.clientHeight / 10); // Smoother, smaller steps
+        // Show only current section and hide others
+        function showCurrentSectionOnly() {
+          sections.forEach((section, index) => {
+            if (index === currentSectionIndex) {
+              section.parent.classList.remove('inactive');
+              // Update indicator to show which section is active
+              document.getElementById('cyclingIndicator').textContent = 
+                `Auto-cycling: ${section.title}`;
+            } else {
+              section.parent.classList.add('inactive');
+            }
+          });
         }
         
-        cyclingInterval = setInterval(() => {
-          if (currentSection.scrollable) {
-            // Handle scrolling within a section
-            const maxScroll = currentSection.element.scrollHeight - currentSection.element.clientHeight;
-            
-            if (maxScroll <= 0) {
-              // No scrolling needed, move to next section
-              currentSectionIndex = (currentSectionIndex + 1) % sections.length;
-              currentSection = sections[currentSectionIndex];
-              scrollPosition = 0;
-              scrollDirection = 'down';
-            } else if (scrollDirection === 'down') {
-              // Scroll down
-              scrollPosition += getScrollStep(currentSection.element);
-              if (scrollPosition >= maxScroll) {
-                scrollPosition = maxScroll;
-                // Pause at the bottom for a moment before changing direction
-                setTimeout(() => {
-                  scrollDirection = 'up';
-                }, 2000);
-              }
-              currentSection.element.scrollTop = scrollPosition;
-            } else {
-              // Scroll up
-              scrollPosition -= getScrollStep(currentSection.element);
-              if (scrollPosition <= 0) {
-                scrollPosition = 0;
-                scrollDirection = 'down';
-                // Move to next section with a slight delay
-                setTimeout(() => {
-                  currentSectionIndex = (currentSectionIndex + 1) % sections.length;
-                  currentSection = sections[currentSectionIndex];
-                }, 1000);
-              }
-              currentSection.element.scrollTop = scrollPosition;
-            }
-          } else {
-            // Non-scrollable section, just move to next after delay
-            currentSectionIndex = (currentSectionIndex + 1) % sections.length;
-            currentSection = sections[currentSectionIndex];
-            scrollPosition = 0;
-            scrollDirection = 'down';
+        // Move to next section
+        function nextSection() {
+          // Reset scroll position
+          if (sections[currentSectionIndex].element) {
+            sections[currentSectionIndex].element.scrollTop = 0;
           }
-        }, 1000); // Update scrolling more frequently for smoother movement
+          
+          // Move to next section
+          currentSectionIndex = (currentSectionIndex + 1) % sections.length;
+          scrollPosition = 0;
+          
+          // Show current section
+          showCurrentSectionOnly();
+          
+          // Start cycling the new section
+          startCyclingCurrentSection();
+        }
+        
+        // Function to smoothly scroll the current section
+        function startCyclingCurrentSection() {
+          const currentSection = sections[currentSectionIndex];
+          const scrollContainer = currentSection.element;
+          
+          if (!scrollContainer) return;
+          
+          // Reset scroll position
+          scrollContainer.scrollTop = 0;
+          scrollPosition = 0;
+          
+          // Clear any existing timeout
+          if (cycleTimeout) {
+            clearTimeout(cycleTimeout);
+          }
+          
+          // Set up smooth scrolling animation
+          const totalHeight = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+          let lastTimestamp = null;
+          const scrollSpeed = totalHeight / (cycleDuration * 0.8); // px per ms, leaving 20% time for pauses
+          
+          function smoothScroll(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const elapsed = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+            
+            scrollPosition += scrollSpeed * elapsed;
+            
+            if (scrollPosition >= totalHeight) {
+              scrollPosition = totalHeight;
+              scrollContainer.scrollTop = scrollPosition;
+              
+              // Wait at the bottom for a moment before moving to next section
+              setTimeout(nextSection, 3000);
+              return;
+            }
+            
+            scrollContainer.scrollTop = scrollPosition;
+            requestAnimationFrame(smoothScroll);
+          }
+          
+          // Start scrolling animation after a brief pause
+          setTimeout(() => {
+            requestAnimationFrame(smoothScroll);
+          }, 2000);
+        }
+        
+        // Initialize cycling
+        showCurrentSectionOnly();
+        startCyclingCurrentSection();
       }
       
       function stopContentCycling() {
@@ -829,6 +880,16 @@
           clearInterval(cyclingInterval);
           cyclingInterval = null;
         }
+        
+        // Remove inactive class from all sections
+        document.querySelectorAll('.section').forEach(section => {
+          section.classList.remove('inactive');
+        });
+        
+        // Reset scroll positions
+        document.getElementById('notificationsTableContainer').scrollTop = 0;
+        document.getElementById('deviationsTableContainer').scrollTop = 0;
+        
         document.getElementById('cyclingIndicator').style.display = 'none';
       }
       
