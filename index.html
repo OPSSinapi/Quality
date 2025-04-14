@@ -6,33 +6,29 @@
     <style>
       body {
         font-family: Arial, sans-serif;
+        background: #f8f8f8;
         margin: 20px;
-        background: #f9f9f9;
         color: #333;
       }
       h1 {
         text-align: center;
       }
-      table {
+      #dashboardTable {
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
       }
       th, td {
         padding: 8px 12px;
-        border: 1px solid #ccc;
+        border: 1px solid #ddd;
         text-align: left;
       }
       th {
         background: #007acc;
-        color: white;
+        color: #fff;
       }
       tr:nth-child(even) {
-        background: #efefef;
-      }
-      .countdown {
-        font-weight: bold;
-        color: #d9534f;
+        background: #f0f0f0;
       }
       .loading {
         text-align: center;
@@ -44,24 +40,24 @@
   <body>
     <h1>Quality Tracker Dashboard</h1>
     <div id="loading" class="loading">Loading dashboard data...</div>
-    <table id="dashboardTable" style="display:none;">
+    <table id="dashboardTable" style="display: none;">
       <thead>
         <tr>
           <th>Check Location Pair</th>
-          <th>Latest Warning#</th>
-          <th>Warning Type</th>
-          <th>Dev Countdown (Days)</th>
-          <th>Total Dev Count</th>
+          <th>DeviationEndDate</th>
+          <th>Notifications</th>
+          <th>Total Previous Warnings</th>
+          <th>Total Previous Deviations</th>
         </tr>
       </thead>
       <tbody>
-        <!-- Rows will be inserted here -->
+        <!-- Dashboard rows inserted here -->
       </tbody>
     </table>
 
     <script>
-      // Fetch the JSON data (data.json must be published via GitHub Pages)
-      fetch('data.json')
+      // Fetch data.json served by GitHub Pages.
+      fetch("data.json")
         .then(response => {
           if (!response.ok) {
             throw new Error("Network response was not ok");
@@ -69,16 +65,12 @@
           return response.json();
         })
         .then(data => {
-          // Hide loading message and show table
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('dashboardTable').style.display = 'table';
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("dashboardTable").style.display = "table";
 
           // Group rows by "Check Location Pairs"
           const groups = {};
           data.forEach(row => {
-            // Expect JSON object keys to match column names exactly:
-            // Date, Check Location Pairs, Check, Location, Rating, Offense#, Warning#,
-            // DeviationStartDate, DeviationEndDate, DaysToDeviationEndDate
             const clp = row["Check Location Pairs"];
             if (!groups[clp]) {
               groups[clp] = [];
@@ -86,57 +78,82 @@
             groups[clp].push(row);
           });
 
-          // Reference to the table body
-          const tbody = document.querySelector('#dashboardTable tbody');
+          const tbody = document.querySelector("#dashboardTable tbody");
 
           // Process each group
-          for (const clp in groups) {
-            // Filter only rows with a non-empty Warning#
-            const rowsWithWarning = groups[clp].filter(r => r["Warning#"] && r["Warning#"].toString().trim() !== "");
-            if (rowsWithWarning.length === 0) {
-              continue;
-            }
-            // Sort rows by the Date field descending (assuming Date format mm/dd/yyyy)
-            rowsWithWarning.sort((a, b) => {
-              return new Date(b["Date"]) - new Date(a["Date"]);
+          Object.keys(groups).forEach(groupKey => {
+            let groupRows = groups[groupKey];
+
+            // Sort rows in ascending order by Date (assumes mm/dd/yyyy or ISO-like format)
+            groupRows.sort((a, b) => new Date(a["Date"]) - new Date(b["Date"]));
+
+            // Determine the last warning row index.
+            // A row is considered a warning if its Warning# value is non-empty.
+            let lastWarningIndex = -1;
+            groupRows.forEach((r, idx) => {
+              if (r["Warning#"] && r["Warning#"].toString().trim() !== "") {
+                lastWarningIndex = idx;
+              }
             });
-            // The latest row is first in the sorted array.
-            const latest = rowsWithWarning[0];
 
-            let warningType = "";
-            let countdown = "-";
-            let totalDevCount = "-";
-
-            // Determine if the latest warning is a "Dev" or "Warn"
-            if (latest["Warning#"].toString().startsWith("Dev")) {
-              warningType = "Dev";
-              // Use the DaysToDeviationEndDate field for the countdown
-              countdown = latest["DaysToDeviationEndDate"];
-              // Count all the rows for this group with a Dev warning
-              totalDevCount = rowsWithWarning.filter(
-                r => r["Warning#"].toString().startsWith("Dev")
-              ).length;
-            } else if (latest["Warning#"].toString().startsWith("Warn")) {
-              warningType = "Warn";
+            // Define the "current cycle" as all rows after (i.e., with higher index than) lastWarningIndex.
+            let currentCycle = [];
+            if (lastWarningIndex >= 0) {
+              currentCycle = groupRows.slice(lastWarningIndex + 1);
+            } else {
+              // If no warning exists at all, current cycle is all rows.
+              currentCycle = groupRows;
+            }
+            if (currentCycle.length === 0) {
+              // If there are no notifications after the last warning, skip this group.
+              return;
             }
 
-            // Create a table row with the data.
-            const tr = document.createElement('tr');
+            // The latest notification is the one with the maximum Date among currentCycle.
+            let latestRow = currentCycle.reduce((latest, curr) => {
+              return new Date(curr["Date"]) > new Date(latest["Date"]) ? curr : latest;
+            }, currentCycle[0]);
+
+            // "Notifications": use the Offense# value from the latest notification row.
+            let notifications = latestRow["Offense#"];
+
+            // "Total Previous Warnings": count the warnings (non-empty Warning#) from all rows
+            // that occurred BEFORE the current cycle (i.e. in groupRows[0...lastWarningIndex])
+            let totalPrevWarnings = lastWarningIndex >= 0 ? groupRows.slice(0, lastWarningIndex + 1)
+              .filter(r => r["Warning#"] && r["Warning#"].toString().trim() !== "").length
+              : 0;
+
+            // "Total Previous Deviations": count the warnings whose Warning# starts with "Dev"
+            // from the rows before the current cycle.
+            let totalPrevDeviations = lastWarningIndex >= 0 ? groupRows.slice(0, lastWarningIndex + 1)
+              .filter(r => r["Warning#"] && r["Warning#"].toString().startsWith("Dev")).length
+              : 0;
+
+            // "DeviationEndDate": if the latest notification's Warning# starts with "Dev",
+            // display its DeviationEndDate along with days remaining in brackets.
+            let deviationEndDisplay = "";
+            if (latestRow["Warning#"] && latestRow["Warning#"].toString().startsWith("Dev")) {
+              let endDate = latestRow["DeviationEndDate"];
+              let daysRemaining = latestRow["DaysToDeviationEndDate"];
+              deviationEndDisplay = `${endDate} (${daysRemaining})`;
+            }
+
+            // Build a row for the dashboard.
+            const tr = document.createElement("tr");
             tr.innerHTML = `
-              <td>${clp}</td>
-              <td>${latest["Warning#"]}</td>
-              <td>${warningType}</td>
-              <td class="countdown">${countdown}</td>
-              <td>${totalDevCount}</td>
+              <td>${groupKey}</td>
+              <td>${deviationEndDisplay}</td>
+              <td>${notifications}</td>
+              <td>${totalPrevWarnings}</td>
+              <td>${totalPrevDeviations}</td>
             `;
             tbody.appendChild(tr);
-          }
+          });
         })
         .catch(error => {
           console.error("Error fetching data.json:", error);
-          document.getElementById('loading').innerText = "Failed to load dashboard data.";
+          document.getElementById("loading").innerText = "Failed to load dashboard data.";
         });
     </script>
   </body>
 </html>
-
