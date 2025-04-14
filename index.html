@@ -195,6 +195,8 @@
         font-weight: 600;
         position: sticky;
         top: 0;
+        z-index: 10;
+        background-color: var(--primary);
       }
 
       .responsive-table td {
@@ -771,6 +773,11 @@
           }
         });
         
+        // Function to get the scroll step (smaller steps for smoother scrolling)
+        function getScrollStep(container) {
+          return Math.max(30, container.clientHeight / 10); // Smoother, smaller steps
+        }
+        
         cyclingInterval = setInterval(() => {
           if (currentSection.scrollable) {
             // Handle scrolling within a section
@@ -784,21 +791,26 @@
               scrollDirection = 'down';
             } else if (scrollDirection === 'down') {
               // Scroll down
-              scrollPosition += currentSection.element.clientHeight / 2;
+              scrollPosition += getScrollStep(currentSection.element);
               if (scrollPosition >= maxScroll) {
                 scrollPosition = maxScroll;
-                scrollDirection = 'up';
+                // Pause at the bottom for a moment before changing direction
+                setTimeout(() => {
+                  scrollDirection = 'up';
+                }, 2000);
               }
               currentSection.element.scrollTop = scrollPosition;
             } else {
               // Scroll up
-              scrollPosition -= currentSection.element.clientHeight / 2;
+              scrollPosition -= getScrollStep(currentSection.element);
               if (scrollPosition <= 0) {
                 scrollPosition = 0;
                 scrollDirection = 'down';
-                // Move to next section
-                currentSectionIndex = (currentSectionIndex + 1) % sections.length;
-                currentSection = sections[currentSectionIndex];
+                // Move to next section with a slight delay
+                setTimeout(() => {
+                  currentSectionIndex = (currentSectionIndex + 1) % sections.length;
+                  currentSection = sections[currentSectionIndex];
+                }, 1000);
               }
               currentSection.element.scrollTop = scrollPosition;
             }
@@ -809,7 +821,7 @@
             scrollPosition = 0;
             scrollDirection = 'down';
           }
-        }, 3000); // Scroll or change section every 3 seconds
+        }, 1000); // Update scrolling more frequently for smoother movement
       }
       
       function stopContentCycling() {
@@ -999,19 +1011,35 @@
           'location-forms': 5
         };
         
-        // Sort by location group (custom order) and then by check
+        // Sort by location group (custom order), then by location, then by check
         notificationsRows.sort((a, b) => {
-          if (a.locationGroup === b.locationGroup) {
-            return a.check.localeCompare(b.check);
+          // First, sort by location group
+          if (a.locationGroup !== b.locationGroup) {
+            return groupOrder[a.locationGroup] - groupOrder[b.locationGroup];
           }
-          return groupOrder[a.locationGroup] - groupOrder[b.locationGroup];
+          
+          // Then, within the same location group, sort by location
+          if (a.location !== b.location) {
+            return a.location.localeCompare(b.location);
+          }
+          
+          // Finally, within the same location, sort by check
+          return a.check.localeCompare(b.check);
         });
         
         deviationsRows.sort((a, b) => {
-          if (a.locationGroup === b.locationGroup) {
-            return a.check.localeCompare(b.check);
+          // First, sort by location group
+          if (a.locationGroup !== b.locationGroup) {
+            return groupOrder[a.locationGroup] - groupOrder[b.locationGroup];
           }
-          return groupOrder[a.locationGroup] - groupOrder[b.locationGroup];
+          
+          // Then, within the same location group, sort by location
+          if (a.location !== b.location) {
+            return a.location.localeCompare(b.location);
+          }
+          
+          // Finally, within the same location, sort by check
+          return a.check.localeCompare(b.check);
         });
         
         renderNotificationsTable(notificationsRows);
