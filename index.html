@@ -1924,7 +1924,7 @@
                 let otherWarn = otherRec["Warning#"] ? otherRec["Warning#"].toString().trim() : "";
                 return (
                   otherWarn.startsWith("Dev") &&
-                  otherDate >= startDate &&
+                  otherDate > startDate &&
                   otherDate <= endDate
                 );
               });
