@@ -69,11 +69,14 @@
         box-shadow: var(--shadow-md);
         overflow: hidden;
         transition: var(--transition-normal);
+        display: flex;
+        flex-direction: column;
       }
       
       .fullscreen-mode {
         padding: 0;
         background: var(--white);
+        overflow: hidden;
       }
       
       .fullscreen-mode .dashboard-container {
@@ -81,6 +84,12 @@
         height: 100vh;
         border-radius: 0;
         margin: 0;
+        overflow: hidden;
+      }
+      
+      .fullscreen-mode .dashboard-content {
+        flex: 1;
+        overflow: hidden;
       }
 
       header {
@@ -220,6 +229,13 @@
         gap: 1.5rem; /* Reduced from 2rem */
         padding: 0.5rem 1.5rem 1.5rem; /* Reduced bottom padding from 2rem */
       }
+      
+      .fullscreen-mode .dashboard-content {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 160px); /* Account for header and stat cards */
+        overflow: hidden;
+      }
 
       .section {
         background: var(--white);
@@ -228,10 +244,16 @@
         border: 1px solid var(--gray-light);
         overflow: hidden;
         transition: var(--transition-normal);
+        display: flex;
+        flex-direction: column;
       }
       
       .section.inactive {
         display: none;
+      }
+      
+      .fullscreen-mode .section {
+        height: 100%;
       }
 
       .section-header {
@@ -295,6 +317,7 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        flex: 1;
       }
 
       .table-header {
@@ -307,12 +330,20 @@
       
       .table-body {
         overflow-y: auto;
-        max-height: 450px; /* Increased from 400px to use more space */
+        max-height: 450px; /* Default height for normal mode */
         width: 100%;
       }
       
       .fullscreen-mode .table-body {
-        max-height: calc(100vh - 220px); /* Adjusted from 280px to account for smaller header & stats */
+        flex: 1;
+        height: auto;
+        max-height: calc(100vh - 220px); /* Adjusted calculation for fullscreen mode */
+      }
+      
+      .fullscreen-mode .section:not(.inactive) .table-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 220px);
       }
       
       /* Table styling */
@@ -320,6 +351,7 @@
         width: 100%;
         border-spacing: 0;
         font-size: 0.9rem;
+        table-layout: fixed;
       }
       
       .responsive-table th {
@@ -331,8 +363,10 @@
         font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        white-space: nowrap;
         position: relative;
+        white-space: normal;
+        word-wrap: break-word;
+        vertical-align: middle;
       }
       
       .responsive-table th:not(:last-child):after {
@@ -346,9 +380,12 @@
       }
       
       .responsive-table td {
-        padding: 1rem;
+        padding: 0.9rem 1rem;
         border-bottom: 1px solid var(--gray-light);
         transition: var(--transition-fast);
+        white-space: normal;
+        word-wrap: break-word;
+        vertical-align: middle;
       }
       
       .responsive-table tr:hover td {
@@ -622,6 +659,7 @@
         gap: 0.5rem;
         padding: 0.75rem;
         border-top: 1px solid var(--gray-light);
+        background-color: var(--white);
       }
       
       .page-indicator {
@@ -1270,6 +1308,10 @@
           const currentSection = sections[sectionIndex];
           currentSection.element.classList.remove('inactive');
           
+          // Scroll to the top of the page/container to ensure section is fully visible
+          window.scrollTo(0, 0);
+          document.querySelector('.dashboard-container').scrollTop = 0;
+          
           // If section has pagination, show the correct page
           if (currentSection.pagination && currentSection.pagination.totalPages > 0) {
             const targetPage = (pageIndex % currentSection.pagination.totalPages) + 1;
@@ -1285,6 +1327,9 @@
           // Scroll to top of section
           const tableBody = currentSection.container.querySelector('.table-body');
           if (tableBody) tableBody.scrollTop = 0;
+          
+          // Ensure section is fully visible in viewport
+          currentSection.element.scrollIntoView({behavior: 'auto', block: 'start'});
         }
         
         // Function to advance to next page or section
@@ -1345,14 +1390,14 @@
         headerTable.innerHTML = `
           <thead>
             <tr>
-              <th class="sortable" data-sort="check">Check</th>
-              <th class="sortable" data-sort="location">Location</th>
-              <th>Notif 1</th>
-              <th>Notif 2</th>
-              <th>Notif 3</th>
-              <th>Warning</th>
-              <th>Previous</th>
-              <th>Status</th>
+              <th class="sortable" data-sort="check" style="width: 28%;">Check</th>
+              <th class="sortable" data-sort="location" style="width: 15%;">Location</th>
+              <th style="width: 8%;">Notif 1</th>
+              <th style="width: 8%;">Notif 2</th>
+              <th style="width: 8%;">Notif 3</th>
+              <th style="width: 15%;">Warning</th>
+              <th style="width: 10%;">Previous</th>
+              <th style="width: 8%;">Status</th>
             </tr>
           </thead>
         `;
@@ -1395,22 +1440,22 @@
             const warningType = row.warning && row.warning.startsWith('Dev') ? 'Dev' : '';
             
             tr.innerHTML = `
-              <td data-sort="check" data-value="${row.check}">${row.check}</td>
-              <td data-sort="location" data-value="${row.location}">${row.location}</td>
-              <td class="text-center">
+              <td data-sort="check" data-value="${row.check}" style="width: 28%;">${row.check}</td>
+              <td data-sort="location" data-value="${row.location}" style="width: 15%;">${row.location}</td>
+              <td class="text-center" style="width: 8%;">
                 <div class="notif-indicator ${row.notif1 ? 'notif-active' : 'notif-inactive'}">1</div>
               </td>
-              <td class="text-center">
+              <td class="text-center" style="width: 8%;">
                 <div class="notif-indicator ${row.notif2 ? 'notif-active' : 'notif-inactive'}">2</div>
               </td>
-              <td class="text-center">
+              <td class="text-center" style="width: 8%;">
                 <div class="notif-indicator ${row.notif3 ? 'notif-active' : 'notif-inactive'}">3</div>
               </td>
-              <td>
+              <td style="width: 15%;">
                 ${row.warning ? `<div class="warning-badge" data-type="${warningType}">${row.warning}</div>` : ''}
               </td>
-              <td>${row.totalPrevWarnings}</td>
-              <td>
+              <td style="width: 10%;">${row.totalPrevWarnings}</td>
+              <td style="width: 8%;">
                 <span class="status-indicator ${statusClass}"></span>
               </td>
             `;
@@ -1439,11 +1484,11 @@
         headerTable.innerHTML = `
           <thead>
             <tr>
-              <th class="sortable" data-sort="check">Check</th>
-              <th class="sortable" data-sort="location">Location</th>
-              <th class="sortable" data-sort="daysRemaining">End Date (Days Remaining)</th>
-              <th>Previous</th>
-              <th>Status</th>
+              <th class="sortable" data-sort="check" style="width: 35%;">Check</th>
+              <th class="sortable" data-sort="location" style="width: 15%;">Location</th>
+              <th class="sortable" data-sort="daysRemaining" style="width: 30%;">End Date (Days Remaining)</th>
+              <th style="width: 10%;">Previous</th>
+              <th style="width: 10%;">Status</th>
             </tr>
           </thead>
         `;
@@ -1490,13 +1535,13 @@
             const daysClass = getDaysClass(row.daysRemaining);
             
             tr.innerHTML = `
-              <td data-sort="check" data-value="${row.check}">${row.check}</td>
-              <td data-sort="location" data-value="${row.location}">${row.location}</td>
-              <td data-sort="daysRemaining" data-value="${row.daysRemaining}">
+              <td data-sort="check" data-value="${row.check}" style="width: 35%;">${row.check}</td>
+              <td data-sort="location" data-value="${row.location}" style="width: 15%;">${row.location}</td>
+              <td data-sort="daysRemaining" data-value="${row.daysRemaining}" style="width: 30%;">
                 ${formattedDate} <span class="deviation-days ${daysClass}">(${row.daysRemaining} days)</span>
               </td>
-              <td>${row.totalPrevDeviations}</td>
-              <td>
+              <td style="width: 10%;">${row.totalPrevDeviations}</td>
+              <td style="width: 10%;">
                 <span class="status-indicator ${statusClass}"></span>
               </td>
             `;
