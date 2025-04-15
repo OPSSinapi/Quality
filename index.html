@@ -241,6 +241,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
       }
 
       .section-title {
@@ -254,6 +256,13 @@
       
       .section-title i {
         color: var(--primary);
+      }
+
+      .controls-container {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
       }
 
       .loading {
@@ -575,6 +584,75 @@
         margin-bottom: 1rem;
       }
       
+      /* Location filter styling */
+      .location-filter {
+        position: relative;
+      }
+      
+      .location-filter select {
+        padding: 0.4rem 2rem 0.4rem 0.8rem;
+        font-size: 0.85rem;
+        border: 1px solid var(--primary);
+        border-radius: var(--radius-md);
+        background-color: var(--white);
+        color: var(--primary);
+        font-weight: 500;
+        cursor: pointer;
+        appearance: none;
+        width: 100%;
+        min-width: 150px;
+      }
+      
+      .location-filter::after {
+        content: "▼";
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--primary);
+        font-size: 0.7rem;
+        pointer-events: none;
+      }
+      
+      /* Pagination controls */
+      .pagination-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border-top: 1px solid var(--gray-light);
+      }
+      
+      .page-indicator {
+        font-size: 0.9rem;
+        color: var(--gray);
+      }
+      
+      .pagination-btn {
+        background: var(--white);
+        border: 1px solid var(--gray-light);
+        border-radius: var(--radius-sm);
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: var(--transition-fast);
+      }
+      
+      .pagination-btn:hover:not(:disabled) {
+        background: var(--primary-light);
+        color: var(--white);
+        border-color: var(--primary-light);
+      }
+      
+      .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      
       /* Responsive adjustments */
       @media (max-width: 768px) {
         .dashboard-overview {
@@ -601,6 +679,16 @@
         
         .view-toggle {
           flex-direction: column;
+        }
+        
+        .section-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        
+        .controls-container {
+          width: 100%;
+          justify-content: space-between;
         }
       }
     </style>
@@ -642,9 +730,17 @@
               <i class="fas fa-bell"></i>
               Current Notifications
             </h2>
-            <div class="view-toggle">
-              <button id="viewFilteredBtn" class="view-btn active">Show Critical (3+)</button>
-              <button id="viewAllBtn" class="view-btn">Show All</button>
+            <div class="controls-container">
+              <div class="location-filter">
+                <select id="notificationsLocationFilter">
+                  <option value="all">All Locations</option>
+                  <!-- Options will be populated dynamically -->
+                </select>
+              </div>
+              <div class="view-toggle">
+                <button id="viewFilteredBtn" class="view-btn active">Show Critical (3+)</button>
+                <button id="viewAllBtn" class="view-btn">Show All</button>
+              </div>
             </div>
           </div>
           <div id="loadingNotifications" class="loading">
@@ -661,6 +757,14 @@
               <i class="fas fa-exclamation-triangle"></i>
               Open Deviations
             </h2>
+            <div class="controls-container">
+              <div class="location-filter">
+                <select id="deviationsLocationFilter">
+                  <option value="all">All Locations</option>
+                  <!-- Options will be populated dynamically -->
+                </select>
+              </div>
+            </div>
           </div>
           <div id="loadingDeviations" class="loading">
             <div class="loading-spinner"></div>
@@ -930,17 +1034,125 @@
         const data = window.dashboardData;
         if (!data) return;
         
-        const currentView = document.getElementById('viewFilteredBtn').classList.contains('active') ? 
-          data.criticalNotifications : data.allNotifications;
+        // Get the filtered data based on current filters
+        const notifLocation = document.getElementById('notificationsLocationFilter').value;
+        const devLocation = document.getElementById('deviationsLocationFilter').value;
+        
+        let notificationsData;
+        if (document.getElementById('viewFilteredBtn').classList.contains('active')) {
+          notificationsData = window.dashboardData.criticalNotifications;
+        } else {
+          notificationsData = window.dashboardData.allNotifications;
+        }
+        
+        // Apply location filter to notifications
+        if (notifLocation !== 'all') {
+          notificationsData = notificationsData.filter(row => row.location === notifLocation);
+        }
+        
+        // Apply location filter to deviations
+        let deviationsData = window.dashboardData.deviations;
+        if (devLocation !== 'all') {
+          deviationsData = deviationsData.filter(row => row.location === devLocation);
+        }
+        
+        // Update counts
+        document.getElementById("totalIssuesCount").innerText = notificationsData.length + deviationsData.length;
+        document.getElementById("deviationsCount").innerText = deviationsData.length;
+        
+        // Count unique locations from both filtered datasets
+        const uniqueLocationsSet = new Set();
+        notificationsData.forEach(row => uniqueLocationsSet.add(row.location));
+        deviationsData.forEach(row => uniqueLocationsSet.add(row.location));
+        document.getElementById("locationsCount").innerText = uniqueLocationsSet.size;
+      }
+
+      // Table pagination functions
+      function setupPagination(tableContainer, rowsPerPage = 20) {
+        const tableBody = tableContainer.querySelector('.table-body');
+        const rows = tableBody.querySelectorAll('tbody tr');
+        
+        // If no rows or empty state, no pagination needed
+        if (rows.length <= 1 && rows[0]?.querySelector('.empty-state')) {
+          return;
+        }
+        
+        // If fewer rows than rowsPerPage, no pagination needed
+        if (rows.length <= rowsPerPage) {
+          return;
+        }
+        
+        const totalPages = Math.ceil(rows.length / rowsPerPage);
+        let currentPage = 1;
+        
+        // Create pagination controls
+        const paginationControls = document.createElement('div');
+        paginationControls.className = 'pagination-controls';
+        paginationControls.innerHTML = `
+          <button class="pagination-btn prev-page" disabled>
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <span class="page-indicator">Page <span class="current-page">1</span> of <span class="total-pages">${totalPages}</span></span>
+          <button class="pagination-btn next-page">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        `;
+        
+        tableContainer.appendChild(paginationControls);
+        
+        // Function to show the current page
+        function showPage(page) {
+          // Hide all rows
+          rows.forEach(row => row.style.display = 'none');
           
-        document.getElementById("totalIssuesCount").innerText = currentView.length + data.deviations.length;
-        document.getElementById("deviationsCount").innerText = data.deviations.length;
-        document.getElementById("locationsCount").innerText = data.uniqueLocations.size;
+          // Show rows for current page
+          const startIndex = (page - 1) * rowsPerPage;
+          const endIndex = Math.min(startIndex + rowsPerPage, rows.length);
+          
+          for (let i = startIndex; i < endIndex; i++) {
+            rows[i].style.display = '';
+          }
+          
+          // Update pagination controls
+          paginationControls.querySelector('.current-page').textContent = page;
+          paginationControls.querySelector('.prev-page').disabled = page === 1;
+          paginationControls.querySelector('.next-page').disabled = page === totalPages;
+          
+          // Scroll to top of table body
+          tableBody.scrollTop = 0;
+          
+          // Update current page
+          currentPage = page;
+        }
+        
+        // Add event listeners to pagination buttons
+        paginationControls.querySelector('.prev-page').addEventListener('click', () => {
+          if (currentPage > 1) {
+            showPage(currentPage - 1);
+          }
+        });
+        
+        paginationControls.querySelector('.next-page').addEventListener('click', () => {
+          if (currentPage < totalPages) {
+            showPage(currentPage + 1);
+          }
+        });
+        
+        // Show first page initially
+        showPage(1);
+        
+        // Return pagination control functions
+        return {
+          totalPages,
+          showPage,
+          getCurrentPage: () => currentPage
+        };
       }
 
       // Fullscreen and cycling functionality
       let isFullscreen = false;
       let cyclingInterval = null;
+      let cyclingTimeout = null;
       
       function toggleFullscreen() {
         isFullscreen = !isFullscreen;
@@ -989,67 +1201,136 @@
         }
       }
       
+      // Completely redone cycling logic to handle tables better
       function startContentCycling() {
+        // Get all sections and their pagination controls
         const sections = [
-          { 
+          {
+            name: "Notifications",
             element: document.querySelector('.section:nth-child(1)'),
-            title: "Current Notifications"
+            container: document.getElementById('notificationsTableContainer'),
+            pagination: null
           },
-          { 
+          {
+            name: "Deviations",
             element: document.querySelector('.section:nth-child(2)'),
-            title: "Open Deviations"
+            container: document.getElementById('deviationsTableContainer'),
+            pagination: null
           }
         ];
         
-        let currentSectionIndex = 0;
-        let cycleDuration = 30000; // 30 seconds per section
-        
-        document.getElementById('cyclingIndicator').style.display = 'block';
-        
-        // Show only current section and hide others
-        function showCurrentSectionOnly() {
-          sections.forEach((section, index) => {
-            if (index === currentSectionIndex) {
-              section.element.classList.remove('inactive');
-              document.getElementById('cyclingIndicator').textContent = 
-                `Auto-cycling: ${section.title}`;
-            } else {
-              section.element.classList.add('inactive');
+        // Set up pagination controls for each section if they exist
+        sections.forEach(section => {
+          if (section.container) {
+            // Check if pagination controls already exist
+            const existingControls = section.container.querySelector('.pagination-controls');
+            if (existingControls) {
+              // Extract pagination information
+              const totalPages = parseInt(existingControls.querySelector('.total-pages').textContent);
+              const currentPage = parseInt(existingControls.querySelector('.current-page').textContent);
+              
+              // Store pagination info
+              section.pagination = {
+                totalPages,
+                currentPage,
+                showPage: (page) => {
+                  // Simulate clicking next/prev until we reach the target page
+                  const currentPage = parseInt(existingControls.querySelector('.current-page').textContent);
+                  if (page > currentPage) {
+                    for (let i = currentPage; i < page; i++) {
+                      existingControls.querySelector('.next-page').click();
+                    }
+                  } else if (page < currentPage) {
+                    for (let i = currentPage; i > page; i--) {
+                      existingControls.querySelector('.prev-page').click();
+                    }
+                  }
+                }
+              };
             }
+          }
+        });
+        
+        let currentSectionIndex = 0;
+        let currentPageIndex = 0;
+        const pageDisplayDuration = 15000; // 15 seconds per page
+        
+        // Create cycling indicator
+        const cyclingIndicator = document.getElementById('cyclingIndicator');
+        cyclingIndicator.style.display = 'block';
+        
+        // Function to show specific section and page
+        function showSectionAndPage(sectionIndex, pageIndex) {
+          // Hide all sections
+          sections.forEach(section => {
+            section.element.classList.add('inactive');
           });
           
-          // Scroll to top of section body container if it exists
-          const bodyContainer = sections[currentSectionIndex].element.querySelector('.table-body');
-          if (bodyContainer) bodyContainer.scrollTop = 0;
-        }
-        
-        // Move to next section
-        function nextSection() {
-          // Move to next section
-          currentSectionIndex = (currentSectionIndex + 1) % sections.length;
-          
           // Show current section
-          showCurrentSectionOnly();
+          const currentSection = sections[sectionIndex];
+          currentSection.element.classList.remove('inactive');
           
-          // Set timeout for next section
-          setTimeout(nextSection, cycleDuration);
+          // If section has pagination, show the correct page
+          if (currentSection.pagination && currentSection.pagination.totalPages > 0) {
+            const targetPage = (pageIndex % currentSection.pagination.totalPages) + 1;
+            currentSection.pagination.showPage(targetPage);
+            
+            // Update cycling indicator
+            cyclingIndicator.textContent = `Auto-cycling: ${currentSection.name} (Page ${targetPage}/${currentSection.pagination.totalPages})`;
+          } else {
+            // Just show the section without pagination
+            cyclingIndicator.textContent = `Auto-cycling: ${currentSection.name}`;
+          }
+          
+          // Scroll to top of section
+          const tableBody = currentSection.container.querySelector('.table-body');
+          if (tableBody) tableBody.scrollTop = 0;
         }
         
-        // Initialize cycling
-        showCurrentSectionOnly();
-        setTimeout(nextSection, cycleDuration);
+        // Function to advance to next page or section
+        function advanceCycling() {
+          const currentSection = sections[currentSectionIndex];
+          
+          // If current section has pagination and we're not on the last page
+          if (currentSection.pagination && 
+              currentPageIndex < currentSection.pagination.totalPages - 1) {
+            // Move to next page
+            currentPageIndex++;
+          } else {
+            // Move to next section
+            currentSectionIndex = (currentSectionIndex + 1) % sections.length;
+            currentPageIndex = 0;
+          }
+          
+          // Show the new section and page
+          showSectionAndPage(currentSectionIndex, currentPageIndex);
+          
+          // Schedule next page change
+          cyclingTimeout = setTimeout(advanceCycling, pageDisplayDuration);
+        }
+        
+        // Start cycling
+        showSectionAndPage(currentSectionIndex, currentPageIndex);
+        cyclingTimeout = setTimeout(advanceCycling, pageDisplayDuration);
       }
       
       function stopContentCycling() {
+        // Clear any existing timeouts
+        if (cyclingTimeout) {
+          clearTimeout(cyclingTimeout);
+          cyclingTimeout = null;
+        }
+        
         // Remove inactive class from all sections
         document.querySelectorAll('.section').forEach(section => {
           section.classList.remove('inactive');
         });
         
+        // Hide cycling indicator
         document.getElementById('cyclingIndicator').style.display = 'none';
       }
       
-      // Table rendering functions
+      // Table rendering functions - updated to support location filtering and pagination
       function renderNotificationsTable(rows) {
         // Completely rebuild the table container structure
         const tableContainer = document.getElementById("notificationsTableContainer");
@@ -1139,6 +1420,9 @@
         
         document.getElementById("loadingNotifications").style.display = "none";
         tableContainer.style.display = "flex";
+        
+        // Setup pagination
+        setupPagination(tableContainer, 15);
       }
       
       function renderDeviationsTable(rows) {
@@ -1222,6 +1506,91 @@
         
         document.getElementById("loadingDeviations").style.display = "none";
         tableContainer.style.display = "flex";
+        
+        // Setup pagination
+        setupPagination(tableContainer, 15);
+      }
+      
+      // Populate location filters
+      function populateLocationFilters(data) {
+        // Create a set of all unique locations
+        const uniqueLocations = new Set();
+        
+        // Add locations from notifications
+        data.allNotifications.forEach(row => {
+          uniqueLocations.add(row.location);
+        });
+        
+        // Add locations from deviations
+        data.deviations.forEach(row => {
+          uniqueLocations.add(row.location);
+        });
+        
+        // Convert to array and sort
+        const locationsArray = Array.from(uniqueLocations).sort();
+        
+        // Populate filters
+        const notifFilter = document.getElementById('notificationsLocationFilter');
+        const devFilter = document.getElementById('deviationsLocationFilter');
+        
+        // Add options to both filters
+        locationsArray.forEach(location => {
+          notifFilter.innerHTML += `<option value="${location}">${location}</option>`;
+          devFilter.innerHTML += `<option value="${location}">${location}</option>`;
+        });
+        
+        // Add event listeners for filter changes
+        notifFilter.addEventListener('change', function() {
+          filterNotifications(this.value);
+        });
+        
+        devFilter.addEventListener('change', function() {
+          filterDeviations(this.value);
+        });
+      }
+      
+      // Filter functions
+      function filterNotifications(location) {
+        if (!window.dashboardData) return;
+        
+        // Get the base dataset based on critical/all toggle
+        let filteredData;
+        if (document.getElementById('viewFilteredBtn').classList.contains('active')) {
+          filteredData = window.dashboardData.criticalNotifications;
+        } else {
+          filteredData = window.dashboardData.allNotifications;
+        }
+        
+        // Apply location filter
+        if (location !== 'all') {
+          filteredData = filteredData.filter(row => row.location === location);
+        }
+        
+        // Render the filtered table
+        renderNotificationsTable(filteredData);
+        updateStats();
+        
+        // Setup sorting after table is rebuilt
+        setupSorting();
+      }
+      
+      function filterDeviations(location) {
+        if (!window.dashboardData) return;
+        
+        // Get all deviations
+        let filteredData = window.dashboardData.deviations;
+        
+        // Apply location filter
+        if (location !== 'all') {
+          filteredData = filteredData.filter(row => row.location === location);
+        }
+        
+        // Render the filtered table
+        renderDeviationsTable(filteredData);
+        updateStats();
+        
+        // Setup sorting after table is rebuilt
+        setupSorting();
       }
       
       function processData(data) {
@@ -1429,6 +1798,9 @@
           uniqueLocations: uniqueLocations
         };
         
+        // Populate location filters with all unique locations
+        populateLocationFilters(window.dashboardData);
+        
         // Initially show critical notifications (3+)
         renderNotificationsTable(window.dashboardData.criticalNotifications);
         renderDeviationsTable(deviationsRows);
@@ -1482,8 +1854,17 @@
             this.classList.add('active');
             document.getElementById('viewAllBtn').classList.remove('active');
             if (window.dashboardData) {
-              renderNotificationsTable(window.dashboardData.criticalNotifications);
+              // Apply both the view filter and location filter
+              const locationFilter = document.getElementById('notificationsLocationFilter').value;
+              let data = window.dashboardData.criticalNotifications;
+              
+              if (locationFilter !== 'all') {
+                data = data.filter(row => row.location === locationFilter);
+              }
+              
+              renderNotificationsTable(data);
               updateStats();
+              setupSorting();
             }
           }
         });
@@ -1493,8 +1874,17 @@
             this.classList.add('active');
             document.getElementById('viewFilteredBtn').classList.remove('active');
             if (window.dashboardData) {
-              renderNotificationsTable(window.dashboardData.allNotifications);
+              // Apply both the view filter and location filter
+              const locationFilter = document.getElementById('notificationsLocationFilter').value;
+              let data = window.dashboardData.allNotifications;
+              
+              if (locationFilter !== 'all') {
+                data = data.filter(row => row.location === locationFilter);
+              }
+              
+              renderNotificationsTable(data);
               updateStats();
+              setupSorting();
             }
           }
         });
