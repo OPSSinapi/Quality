@@ -1908,31 +1908,36 @@
           let latestDeviation = null;
           let isOpen = false;
           
-          // Find the latest deviation record
-          for (let i = records.length - 1; i >= 0; i--) {
-            let rec = records[i];
-            let warn = rec["Warning#"] ? rec["Warning#"].toString().trim() : "";
-            if (warn.startsWith("Dev") && rec["DeviationStartDate"] && rec["DeviationEndDate"]) {
-              latestDeviation = rec;
-              const startDate = new Date(rec["DeviationStartDate"]);
-              const endDate = new Date(rec["DeviationEndDate"]);
-              
-              // Check if there are any other deviation warnings within the date range
-              const hasWarningsInRange = records.some(otherRec => {
-                if (otherRec === rec) return false; // Exclude the deviation record itself
-                let otherDate = new Date(otherRec["Date"]);
-                let otherWarn = otherRec["Warning#"] ? otherRec["Warning#"].toString().trim() : "";
-                return (
-                  otherWarn.startsWith("Dev") &&
-                  otherDate > startDate &&
-                  otherDate <= endDate
-                );
-              });
-              
-              isOpen = !hasWarningsInRange;
-              break;
-            }
-          }
+          // Find open deviations (those with dates but no Dev warning yet)
+for (let i = records.length - 1; i >= 0; i--) {
+  let rec = records[i];
+  let warn = rec["Warning#"] ? rec["Warning#"].toString().trim() : "";
+  
+  // Check for records with dates but NO Dev warning
+  if (rec["DeviationStartDate"] && rec["DeviationEndDate"] && !warn.startsWith("Dev")) {
+    const startDate = new Date(rec["DeviationStartDate"]);
+    const endDate = new Date(rec["DeviationEndDate"]);
+    const currentDate = new Date();
+    
+    // Only include deviations where end date is in the future
+    if (endDate >= currentDate) {
+      const daysRemaining = Math.ceil((endDate - currentDate) / (1000 * 60 * 60 * 24));
+      let totalPrevDeviations = records.filter(r => {
+        let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
+        return w.startsWith("Dev") && new Date(r["Date"]) < currentDate;
+      }).length;
+      
+      deviationsRows.push({
+        check: check,
+        location: location,
+        deviationEnd: rec["DeviationEndDate"],
+        daysRemaining: daysRemaining,
+        totalPrevDeviations: totalPrevDeviations,
+        locationGroup: getLocationGroup(location)
+      });
+    }
+  }
+}
           
           if (latestDeviation && isOpen) {
             // Build deviations row for open deviation
