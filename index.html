@@ -1833,6 +1833,8 @@
       
       function processData(data) {
         const currentDate = new Date();
+        const uniqueDeviations = new Set();
+
         
         // Get all the check-location pairs we need to ensure are shown
         const allChecks = addAllChecks();
@@ -1921,20 +1923,28 @@ for (let i = records.length - 1; i >= 0; i--) {
     
     // Only include deviations where end date is in the future
     if (endDate >= currentDate) {
-      const daysRemaining = Math.ceil((endDate - currentDate) / (1000 * 60 * 60 * 24));
-      let totalPrevDeviations = records.filter(r => {
-        let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
-        return w.startsWith("Dev") && new Date(r["Date"]) < currentDate;
-      }).length;
+      // Create a unique key for this deviation
+      const deviationKey = `${check}|${location}|${rec["DeviationStartDate"]}|${rec["DeviationEndDate"]}`;
       
-      deviationsRows.push({
-        check: check,
-        location: location,
-        deviationEnd: rec["DeviationEndDate"],
-        daysRemaining: daysRemaining,
-        totalPrevDeviations: totalPrevDeviations,
-        locationGroup: getLocationGroup(location)
-      });
+      // Only process if we haven't seen this exact deviation before
+      if (!uniqueDeviations.has(deviationKey)) {
+        uniqueDeviations.add(deviationKey);
+        
+        const daysRemaining = Math.ceil((endDate - currentDate) / (1000 * 60 * 60 * 24));
+        let totalPrevDeviations = records.filter(r => {
+          let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
+          return w.startsWith("Dev") && new Date(r["Date"]) < currentDate;
+        }).length;
+        
+        deviationsRows.push({
+          check: check,
+          location: location,
+          deviationEnd: rec["DeviationEndDate"],
+          daysRemaining: daysRemaining,
+          totalPrevDeviations: totalPrevDeviations,
+          locationGroup: getLocationGroup(location)
+        });
+      }
     }
   }
 }
