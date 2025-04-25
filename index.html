@@ -1977,34 +1977,39 @@ for (let i = records.length - 1; i >= 0; i--) {
               });
             }
           } else {
-            // Build notifications row
-            // Build notifications row - only count Rating=1 records
-const notifCount = currentCycle.filter(rec => rec["Rating"] === 1 || rec["Rating"] === "1").length;
-let notif1 = notifCount >= 1;
-let notif2 = notifCount >= 2;
-let notif3 = notifCount >= 3;
-            let warningDisplay = warningLabel !== "" ? warningLabel : "";
-            let totalPrevWarnings = (lastWarnIndex >= 0) ? 
-              records.slice(0, lastWarnIndex + 1).filter(r => {
-                let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
-                return w && w !== "" && !w.startsWith("Dev");
-              }).length : 0;
-            
-            let notificationsVal = latest["Offense#"] || "";
-            
-            notificationsRows.push({
-              check: check,
-              location: location,
-              notif1: notif1,
-              notif2: notif2,
-              notif3: notif3,
-              warning: warningDisplay,
-              totalPrevWarnings: totalPrevWarnings,
-              notifications: notificationsVal,
-              notifCount: notifCount,
-              hasWarning: warningDisplay !== "",
-              locationGroup: getLocationGroup(location)
-            });
+
+            // Only count Rating=1 records for notifications
+const validRecords = currentCycle.filter(rec => rec["Rating"] === 1 || rec["Rating"] === "1");
+const notifCount = validRecords.length;
+
+// Only add to notifications table if there are actual notifications or a warning
+if (notifCount > 0 || warningLabel !== "") {
+  let notif1 = notifCount >= 1;
+  let notif2 = notifCount >= 2;
+  let notif3 = notifCount >= 3;
+  let warningDisplay = warningLabel !== "" ? warningLabel : "";
+  let totalPrevWarnings = (lastWarnIndex >= 0) ? 
+    records.slice(0, lastWarnIndex + 1).filter(r => {
+      let w = r["Warning#"] ? r["Warning#"].toString().trim() : "";
+      return w && w !== "" && !w.startsWith("Dev");
+    }).length : 0;
+
+  let notificationsVal = latest["Offense#"] || "";
+
+  notificationsRows.push({
+    check: check,
+    location: location,
+    notif1: notif1,
+    notif2: notif2,
+    notif3: notif3,
+    warning: warningDisplay,
+    totalPrevWarnings: totalPrevWarnings,
+    notifications: notificationsVal,
+    notifCount: notifCount,
+    hasWarning: warningDisplay !== "",
+    locationGroup: getLocationGroup(location)
+  });
+}
           }
         });
         
