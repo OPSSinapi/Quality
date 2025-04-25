@@ -1832,39 +1832,44 @@
       }
       
       function processData(data) {
-        const currentDate = new Date();
-        const uniqueDeviations = new Set();
-
-        
-        // Get all the check-location pairs we need to ensure are shown
-        const allChecks = addAllChecks();
-        
-        // Create a base record template
-        const createBaseRecord = (check, location) => ({
-          "Date": new Date().toISOString(),
-          "Check Location Pairs": `${check} - ${location}`,
-          "Check": check,
-          "Location": location,
-          "Rating": 0,
-          "Offense#": "",
-          "Warning#": "",
-          "DeviationStartDate": "",
-          "DeviationEndDate": "",
-          "DaysToDeviationEndDate": ""
-        });
-        
-        // Add placeholder records for any missing check-location pairs
-        allChecks.forEach(([check, location]) => {
-          // Check if this pair exists in the data
-          const existingRecord = data.some(record => 
-            record["Check"] === check && record["Location"] === location
-          );
-          
-          // If not, add a placeholder record
-          if (!existingRecord) {
-            data.push(createBaseRecord(check, location));
-          }
-        });
+  const currentDate = new Date();
+  const uniqueDeviations = new Set();
+  
+  // Filter out entries with Rating=2
+  data = data.filter(record => {
+    // Keep records if Rating is 1 (as number or string) or if Rating is empty/undefined
+    return record["Rating"] === 1 || record["Rating"] === "1" || !record["Rating"];
+  });
+  
+  // Get all the check-location pairs we need to ensure are shown
+  const allChecks = addAllChecks();
+  
+  // Create a base record template
+  const createBaseRecord = (check, location) => ({
+    "Date": new Date().toISOString(),
+    "Check Location Pairs": `${check} - ${location}`,
+    "Check": check,
+    "Location": location,
+    "Rating": 0,
+    "Offense#": "",
+    "Warning#": "",
+    "DeviationStartDate": "",
+    "DeviationEndDate": "",
+    "DaysToDeviationEndDate": ""
+  });
+  
+  // Add placeholder records for any missing check-location pairs
+  allChecks.forEach(([check, location]) => {
+    // Check if this pair exists in the data
+    const existingRecord = data.some(record => 
+      record["Check"] === check && record["Location"] === location
+    );
+    
+    // If not, add a placeholder record
+    if (!existingRecord) {
+      data.push(createBaseRecord(check, location));
+    }
+  });
         
         // Group records by Check and Location
         const groups = {};
